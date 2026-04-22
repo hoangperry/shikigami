@@ -9,6 +9,7 @@
 //! Phase 2 will load `.shikigami` character packages and replace the debug
 //! panel with the PixiJS sprite renderer.
 
+pub mod character;
 pub mod config;
 pub mod event;
 pub mod state;
@@ -18,6 +19,7 @@ use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 use tracing_subscriber::EnvFilter;
 
+use crate::character::{ActiveCharacter, CharacterRegistry, CharacterSummary};
 use crate::config::{Settings, DEFAULT_PORT, PORT_SCAN_SPAN};
 use crate::event::AppState;
 use crate::state::Dampener;
@@ -27,8 +29,20 @@ use crate::state::Dampener;
 pub fn run() {
     init_tracing();
 
+    let registry = Arc::new(CharacterRegistry::new());
+    let report = registry.load_from_default_paths();
+    tracing::info!(
+        loaded = ?report.loaded,
+        failed_count = report.failed.len(),
+        "character registry initialized"
+    );
+    for (path, err) in &report.failed {
+        tracing::warn!(path = %path.display(), error = %err, "character failed to load");
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
+        .manage(registry)
         .setup(|app| {
             tracing::info!(
                 version = env!("CARGO_PKG_VERSION"),
@@ -37,7 +51,13 @@ pub fn run() {
             start_event_pipeline(app.handle().clone());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![ping, get_settings])
+        .invoke_handler(tauri::generate_handler![
+            ping,
+            get_settings,
+            list_characters,
+            get_active_character,
+            set_active_character
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -104,6 +124,30 @@ fn ping() -> &'static str {
 #[tauri::command]
 fn get_settings(_app: AppHandle) -> Settings {
     Settings::load()
+}
+
+#[tauri::command]
+fn list_characters(registry: tauri::State<'_, Arc<CharacterRegistry>>) -> Vec<CharacterSummary> {
+    registry.list_summaries()
+}
+
+#[tauri::command]
+fn get_active_character(
+    registry: tauri::State<'_, Arc<CharacterRegistry>>,
+) -> Option<ActiveCharacter> {
+    registry.active_character()
+}
+
+#[tauri::command]
+fn set_active_character(
+    id: String,
+    registry: tauri::State<'_, Arc<CharacterRegistry>>,
+) -> Result<(), String> {
+    if registry.set_active(&id) {
+        Ok(())
+    } else {
+        Err(format!("character {id:?} not found"))
+    }
 }
 
 fn init_tracing() {

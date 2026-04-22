@@ -415,7 +415,7 @@ def compose(head_rows: list[str], body_rows: list[str] | None = None) -> list[st
 def main() -> None:
     here = pathlib.Path(__file__).parent.resolve()
     root = here.parent
-    raw  = root / "raw"
+    raw  = root / "assets" / "states"
 
     catalog: dict[str, list[list[str]]] = {
         "idle": [
@@ -453,7 +453,7 @@ def main() -> None:
 
     for state, frames in catalog.items():
         for idx, rows in enumerate(frames):
-            out = raw / state / f"frame_{idx:02d}.png"
+            out = pathlib.Path("assets/states") / state / f"frame_{idx:02d}.png"
             render(rows, out)
             print(f"✓ {state}/frame_{idx:02d}.png")
 
