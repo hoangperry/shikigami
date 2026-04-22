@@ -77,7 +77,10 @@ fn count_frame_files(dir: &Path) -> Result<usize, std::io::Error> {
         let entry = entry?;
         let name = entry.file_name();
         let name = name.to_string_lossy();
-        if name.starts_with("frame_") && (name.ends_with(".png") || name.ends_with(".webp")) {
+        let sprite = name.starts_with("frame_")
+            && (name.ends_with(".png") || name.ends_with(".webp"));
+        let live2d = name.ends_with(".model3.json") || name.ends_with(".moc3");
+        if sprite || live2d {
             count += 1;
         }
     }
@@ -105,7 +108,12 @@ fn collect_frame_files(dir: &Path) -> Vec<PathBuf> {
         .filter(|p| {
             p.file_name()
                 .and_then(|n| n.to_str())
-                .map(|n| n.starts_with("frame_") && (n.ends_with(".png") || n.ends_with(".webp")))
+                .map(|n| {
+                    (n.starts_with("frame_")
+                        && (n.ends_with(".png") || n.ends_with(".webp")))
+                        || n.ends_with(".model3.json")
+                        || n.ends_with(".moc3")
+                })
                 .unwrap_or(false)
         })
         .collect();
