@@ -14,12 +14,12 @@
       {
         "label": "main",
         "title": "Shikigami",
-        "width": 320,
-        "height": 480,
-        "minWidth": 160,
-        "minHeight": 240,
-        "maxWidth": 800,
-        "maxHeight": 1200,
+        "width": 480,
+        "height": 640,
+        "minWidth": 200,
+        "minHeight": 300,
+        "maxWidth": 900,
+        "maxHeight": 1400,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
@@ -31,6 +31,7 @@
         "focus": true
       }
     ],
+    "macOSPrivateApi": true,
     "security": {
       "csp": "default-src 'self'; img-src 'self' data: blob: asset: https://asset.localhost; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' asset: https://asset.localhost;",
       "assetProtocol": {
