@@ -4,7 +4,7 @@
 // sequence on a transparent canvas. Supports crossfade transitions between
 // states.
 
-import { Application, Assets, Container, Sprite, Texture } from "pixi.js";
+import { Application, Assets, Sprite, Texture } from "pixi.js";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { ActiveCharacter, StatePayload } from "../ipc/commands";
 
@@ -25,7 +25,6 @@ export class SpriteRenderer {
   private animations = new Map<string, LoadedAnimation>();
 
   private currentSprite: Sprite | null = null;
-  private nextSprite: Sprite | null = null;
   private currentAnim: LoadedAnimation | null = null;
 
   private frameIndex = 0;
@@ -88,14 +87,11 @@ export class SpriteRenderer {
     if (!next) return;
     if (this.currentAnim?.stateKey === next.stateKey) return;
 
-    // Build the "next" sprite.
     const nextSprite = new Sprite(next.textures[0]);
     centerSprite(nextSprite, this.app);
     nextSprite.alpha = 0;
     this.app.stage.addChild(nextSprite);
-    this.nextSprite = nextSprite;
 
-    // Fade current out, next in.
     const outSprite = this.currentSprite;
     const startedAt = performance.now();
     const fadeStep = () => {
@@ -107,7 +103,6 @@ export class SpriteRenderer {
       } else {
         if (outSprite && outSprite.parent) outSprite.parent.removeChild(outSprite);
         this.currentSprite = nextSprite;
-        this.nextSprite = null;
         this.currentAnim = next;
         this.frameIndex = 0;
         this.accumulatorMs = 0;
@@ -120,7 +115,6 @@ export class SpriteRenderer {
   dispose(): void {
     this.animations.clear();
     this.currentSprite = null;
-    this.nextSprite = null;
     this.currentAnim = null;
     if (this.app) {
       this.app.destroy(true, { children: true, texture: true });
