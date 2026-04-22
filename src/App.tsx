@@ -1,16 +1,48 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
-// Phase 0 scaffold — minimal debug panel for the transparent overlay.
-// Phase 2 will replace this with the PixiJS sprite renderer.
+type ResolvedState = {
+  dominant: string;
+  texture: string | null;
+  severity: string;
+  duration_ms: number;
+  event_id: number;
+};
+
 export function App() {
-  const [state, setState] = useState<string>("idle");
-  const [lastEventAt, setLastEventAt] = useState<string | null>(null);
+  const [state, setState] = useState<ResolvedState | null>(null);
+  const [history, setHistory] = useState<ResolvedState[]>([]);
+  const unlistenRef = useRef<UnlistenFn | null>(null);
 
   useEffect(() => {
-    // TODO (Phase 1): subscribe to Tauri 'state_changed' event
-    // import { listen } from "@tauri-apps/api/event";
-    // const unlisten = await listen("state_changed", (e) => setState(e.payload as string));
+    let cancelled = false;
+    (async () => {
+      try {
+        const unlisten = await listen<ResolvedState>("state_changed", (e) => {
+          setState(e.payload);
+          setHistory((h) => [e.payload, ...h].slice(0, 10));
+        });
+        if (cancelled) {
+          unlisten();
+          return;
+        }
+        unlistenRef.current = unlisten;
+      } catch (err) {
+        console.warn("failed to subscribe to state_changed:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      unlistenRef.current?.();
+      unlistenRef.current = null;
+    };
   }, []);
+
+  const animationKey = state
+    ? state.texture
+      ? `${state.dominant}_${state.texture}`
+      : state.dominant
+    : "idle";
 
   return (
     <div
@@ -45,40 +77,36 @@ export function App() {
           Shikigami · v0.1.0-alpha.0
         </div>
         <div style={{ fontWeight: 600, fontSize: 20 }}>
-          <code>{state}</code>
+          <code>{animationKey}</code>
         </div>
-        <div
-          style={{ fontSize: 11, opacity: 0.5, marginTop: 6 }}
-        >
-          {lastEventAt
-            ? `last event @ ${lastEventAt}`
+        <div style={{ fontSize: 11, opacity: 0.55, marginTop: 6 }}>
+          {state
+            ? `severity=${state.severity} · duration=${state.duration_ms}ms · #${state.event_id}`
             : "waiting for events…"}
         </div>
       </div>
 
-      {/* DEV: inline dev-tester buttons. Remove once Phase 1 transport lands. */}
-      <div style={{ display: "flex", gap: 6, opacity: 0.7 }}>
-        {["idle", "happy", "focused", "warning", "sleepy"].map((s) => (
-          <button
-            key={s}
-            onClick={() => {
-              setState(s);
-              setLastEventAt(new Date().toLocaleTimeString());
-            }}
-            style={{
-              padding: "4px 10px",
-              fontSize: 11,
-              background: "rgba(240,240,240,0.18)",
-              color: "#f0f0f0",
-              border: "1px solid rgba(240,240,240,0.25)",
-              borderRadius: 6,
-              cursor: "pointer",
-            }}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
+      {history.length > 0 && (
+        <details
+          style={{
+            padding: "6px 12px",
+            fontSize: 11,
+            color: "rgba(240,240,240,0.65)",
+            maxWidth: 320,
+          }}
+        >
+          <summary style={{ cursor: "pointer" }}>
+            last {history.length} event{history.length > 1 ? "s" : ""}
+          </summary>
+          <ul style={{ margin: "4px 0 0 0", paddingLeft: 16 }}>
+            {history.map((h) => (
+              <li key={h.event_id} style={{ fontFamily: "monospace" }}>
+                #{h.event_id} — {h.texture ? `${h.dominant}_${h.texture}` : h.dominant}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }
