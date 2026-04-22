@@ -66,3 +66,4 @@ assets/live2d-wip/
 .tmp/
 tmp/
 *.tmp
+output/

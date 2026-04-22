@@ -1,0 +1,58 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Shikigami",
+  "version": "0.1.0-alpha.0",
+  "identifier": "dev.shikigami.app",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Shikigami",
+        "width": 320,
+        "height": 480,
+        "minWidth": 160,
+        "minHeight": 240,
+        "maxWidth": 800,
+        "maxHeight": 1200,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": true,
+        "visibleOnAllWorkspaces": true,
+        "shadow": false,
+        "center": true,
+        "focus": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: asset: https://asset.localhost; style-src 'self' 'unsafe-inline'; script-src 'self';"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg", "app"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "12.0",
+      "entitlements": null,
+      "signingIdentity": null,
+      "providerShortName": null,
+      "hardenedRuntime": true
+    },
+    "category": "DeveloperTool",
+    "shortDescription": "Desktop companion for AI coding sessions",
+    "longDescription": "Shikigami is a summoned desktop companion that reflects your AI agent's real-time state via a 2D animated character."
+  }
+}
