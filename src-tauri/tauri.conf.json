@@ -13,20 +13,20 @@
     "windows": [
       {
         "label": "main",
-        "title": "Shikigami (diag mode)",
+        "title": "Shikigami",
         "width": 480,
         "height": 640,
         "minWidth": 200,
         "minHeight": 300,
         "maxWidth": 900,
         "maxHeight": 1400,
-        "decorations": true,
-        "transparent": false,
-        "alwaysOnTop": false,
-        "skipTaskbar": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
         "resizable": true,
-        "visibleOnAllWorkspaces": false,
-        "shadow": true,
+        "visibleOnAllWorkspaces": true,
+        "shadow": false,
         "center": false,
         "focus": true,
         "visible": true,
@@ -34,6 +34,7 @@
         "y": 100
       }
     ],
+    "macOSPrivateApi": true,
     "security": {
       "csp": "default-src 'self'; img-src 'self' data: blob: asset: https://asset.localhost; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval' https://cubism.live2d.com; connect-src 'self' asset: https://asset.localhost https://cubism.live2d.com;",
       "assetProtocol": {
