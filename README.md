@@ -1,58 +1,230 @@
 # 式神 · Shikigami
 
-> A summoned desktop companion that reflects your Claude Code session's emotional state through a 2D animated character, displayed as a Picture-in-Picture overlay.
+> A summoned desktop companion that reflects your AI agent's real-time state through a reactive 2D character, displayed as a transparent Picture-in-Picture overlay.
 
-## ✨ Concept
-
-**Shikigami** (式神) — in Japanese folklore, a spirit summoned to serve its master. Here, she's a 2D animated character who lives on your desktop, reacting in real-time to your AI coding assistant's responses.
-
-- 🎭 **Emotion-reactive** — parses Claude Code output (kaomoji, action text, keywords) and maps to expression states
-- 🪟 **Picture-in-Picture** — transparent, always-on-top overlay that doesn't interrupt your workflow
-- 🎨 **Custom personas** — swap characters to match different Claude Code output styles
-- 🔌 **Hook-driven** — integrates with Claude Code's `Stop` / `PostToolUse` hooks
-
-## 🏗️ Architecture
-
-```
-Claude Code Response
-        ↓
-   [Hooks System]   ← PostToolUse / Stop / UserPromptSubmit
-        ↓
-  [Emotion Parser]  ← regex detect kaomoji + *action text* + keywords
-        ↓
-   WebSocket / IPC
-        ↓
-  [Animation App]   → PiP window with transparent background
-```
-
-## 🎭 Emotion States
-
-| State | Triggers | Animation |
-|-------|----------|-----------|
-| `idle` | default | Breathing loop, blink |
-| `happy` | `♡`, `(｡♡‿♡｡)`, `✓ Done` | Smile, sparkle eyes |
-| `focused` | `(๑•̀ᴗ-)✧`, `*typing*` | Serious, typing |
-| `shy` | `♡///♡`, `(/ω＼)` | Blush, cover face |
-| `confused` | `(⊙﹏⊙)`, `(@_@;)` | Tilt head, ? bubble |
-| `flirty` | `( ˶ˆᗜˆ˵ )`, wink action | Wink, smirk |
-| `warning` | `⚠️`, danger keywords | Raise hand, serious |
-| `overloaded` | `(°ー°〃)`, logic conflict | Spinning eyes |
-
-## 🚀 Status
-
-🚧 **Early development** — brainstorming & scaffolding phase.
-
-## 📋 Roadmap
-
-- [ ] **Phase 1 — MVP**: Electron shell + WebSocket server + 3 sprite states
-- [ ] **Phase 2 — Emotion Engine**: Regex parser + state machine
-- [ ] **Phase 3 — Character Assets**: Live2D rig or sprite sheets
-- [ ] **Phase 4 — Polish**: Idle animations, settings UI, multi-persona support
-
-## 📜 License
-
-TBD (currently private — will open-source once MVP is stable)
+**Status**: `v0.1.0-alpha` · planning complete + event engine shipped · character renderer in progress
+**Platforms**: macOS (Apple Silicon + Intel) · Windows and Linux in v0.2 / v0.3
+**Current integration**: Claude Code (Cursor / Windsurf / ChatGPT in v0.4+)
 
 ---
 
-*"She watches. She listens. She reflects. Summoned by code, animated by soul."*
+## What It Does
+
+Agentic AI coding sessions generate a lot of events — tool invocations, errors, commits, long-running builds — but the terminal gives you a wall of text and nothing else. Shikigami sits on your desktop as a small transparent window with an animated character who reacts in real time to what your agent is actually doing. A green build makes her smile; a rejected test makes her concerned; a stray `rm -rf` locks her into an alarm state before you press enter.
+
+It is *not* a chatbot, a VTuber rig, or a voice companion. It is **visual proprioception for agentic workflows** — a status indicator with personality.
+
+---
+
+## Why It Exists
+
+Long AI coding sessions are cognitively heavy and visually flat. The existing ecosystem splits into "serious" IDE status bars (functional, no presence) and "fun" desktop pets / VTuber rigs (presence, no agent awareness). Shikigami bridges them: a character grounded in structured events from your AI tool, not cosmetic text patterns.
+
+The design is deliberately narrow so it can be correct. Read [`docs/PRD.md`](docs/PRD.md) for the full product rationale.
+
+---
+
+## Quick Start
+
+```bash
+# 1. Clone
+git clone https://github.com/hoangperry/shikigami.git
+cd shikigami
+
+# 2. Install frontend deps
+pnpm install
+
+# 3. Run dev build (opens a transparent always-on-top window)
+pnpm tauri:dev
+
+# 4. In another terminal: register Claude Code hooks
+python3 scripts/install-hook.py install
+
+# 5. Use Claude Code normally — the character reacts to every tool call
+```
+
+Verify health:
+
+```bash
+python3 scripts/install-hook.py doctor
+```
+
+Test without Claude Code (manual event):
+
+```bash
+TOKEN=$(cat ~/.shikigami/token)
+PORT=$(jq -r .port ~/.shikigami/config.json)
+curl -X POST "http://127.0.0.1:$PORT/v1/events" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"schemaVersion":"1.0","source":"claude-code","type":"git_commit","text":"fix critical bug, finally"}'
+# Character should animate into happy_relieved
+```
+
+Uninstall hooks:
+
+```bash
+python3 scripts/install-hook.py uninstall
+```
+
+---
+
+## How It Works
+
+Events flow through a seven-stage pipeline:
+
+```
+Hook → Bridge → Ingest → Segment → Resolve → Emit → Render
+ CC     Py      Rust     Rust      Rust      Rust    React+PixiJS
+```
+
+- **Bridge** (`hooks/shikigami-hook.py`) transforms Claude Code hook JSON into a typed `EventPayload`
+- **Ingest** (`src-tauri/src/event/server.rs`) receives HTTP POST on `127.0.0.1` with bearer auth
+- **Segment** (`src-tauri/src/state/dampen.rs`) dedups repeated events in a 2-second sliding window
+- **Resolve** (`src-tauri/src/state/machine.rs`) applies Hierarchical Fusion: events drive the dominant state, text modifiers layer on textures, severity scales duration
+- **Emit** fires a `state_changed` Tauri event to the frontend
+- **Render** (Phase 2) paints the sprite via PixiJS
+
+Full details in [`docs/PIPELINE.md`](docs/PIPELINE.md) · architectural decisions in [`docs/adr/`](docs/adr/).
+
+---
+
+## Features
+
+- 🪶 Lightweight: built on **Tauri 2** (<80 MB RAM idle target)
+- 🧠 **Event-driven state**: reactions map to what your agent actually does (tool calls, exit codes, git ops), not prompt-engineered text patterns
+- 🛡️ **Severity-aware**: destructive operations like `rm -rf`, `DROP TABLE`, `git push --force` lock the character into a critical warning state with texture suppression
+- 🎨 **Dual-layer emotion system**: 9 dominant states × 6 texture modifiers = expressive animation keys like `happy_relieved` or `focused_alarmed`
+- 🔌 **Extensible character format**: `.shikigami` zip packages, portable across OSes
+- 🔒 **100 % local**: no telemetry, no cloud, no proprietary deps (core)
+- 🔁 **Toxic-loop-safe**: dampener prevents strobing when errors repeat
+
+---
+
+## Documentation
+
+| Doc | What it covers |
+|-----|----------------|
+| [`docs/PRD.md`](docs/PRD.md) | Product requirements v0.2 (post-review) |
+| [`docs/TDD.md`](docs/TDD.md) | Technical design mapping PRD to code |
+| [`docs/PIPELINE.md`](docs/PIPELINE.md) | Seven-stage data flow narrative |
+| [`docs/CHARACTER-PLAYBOOK.md`](docs/CHARACTER-PLAYBOOK.md) | Character production guide + commission strategy |
+| [`docs/codex-ui-prompts.md`](docs/codex-ui-prompts.md) | Copy-paste prompts for GPT image-gen |
+| [`docs/adr/`](docs/adr/) | Five architecture decision records |
+| [`docs/reviews/`](docs/reviews/) | Adversarial-review audit trail |
+| [`docs/debates/`](docs/debates/) | Multi-AI tournament decisions |
+| [`docs/research/`](docs/research/) | External-repo reusability analyses |
+
+---
+
+## Character Packages
+
+Characters ship as `.shikigami` zip bundles containing a manifest, sprite frames, preview, and license. See [`docs/adr/003-character-package-format.md`](docs/adr/003-character-package-format.md).
+
+### Default Character
+
+| Package | Purpose | License |
+|---------|---------|---------|
+| `characters/linh-pixel/` | Procedural 8-bit dev fixture | MIT |
+| `characters/linh/` | Production Linh (in progress, anime/vector) | CC-BY-SA-4.0 on ship |
+
+The pixel fixture exists so engineering can proceed while the production character is in commission. See `characters/linh-pixel/README.md` for details.
+
+### Make Your Own
+
+A template repo and `shikigami pack` CLI are planned for v0.2. For now, see the manifest schema in [`schemas/manifest.v1.0.json`](schemas/manifest.v1.0.json) and the format spec in [`docs/adr/003-character-package-format.md`](docs/adr/003-character-package-format.md).
+
+Minimum viable character: `idle` + `happy` states. Missing states fall back gracefully.
+
+---
+
+## Project Status
+
+| Phase | Status | Highlights |
+|-------|--------|-----------|
+| **Planning** | ✅ Complete | PRD + TDD + 5 ADRs + adversarial review + 4-way debate |
+| **Phase 0** | ✅ Foundation | Tauri scaffold, transparent overlay, CI workflow |
+| **Phase 1** | ✅ Event engine | HTTP server + state machine + texture fusion + hook bridge |
+| **Phase 2** | 🛠️ In progress | Character loader, PixiJS sprite renderer |
+| **Phase 3** | ⏳ Planned | Settings UI, speech bubble, system tray |
+| **v0.2 (Windows)** | ⏳ Planned | Cross-platform port |
+| **v0.3 (Linux)** | ⏳ Planned | Cross-platform port |
+
+Progress tracker: [GitHub Issues](https://github.com/hoangperry/shikigami/issues) (28 active issues).
+
+---
+
+## Contributing
+
+Open source contributions welcome. Some pointers:
+
+- New adapters (Cursor / Windsurf / ChatGPT): modify only the **Bridge** stage in the pipeline — downstream is identical across tools
+- New emotion states / textures: add to `src-tauri/src/state/canonical.rs` and update `schemas/manifest.v1.0.json`
+- Character packs: follow [`docs/CHARACTER-PLAYBOOK.md`](docs/CHARACTER-PLAYBOOK.md); any SPDX-compatible permissive license is accepted (CC-BY-SA-4.0 preferred for sprites)
+
+All PRs must pass CI (`cargo fmt`, `cargo clippy -D warnings`, `cargo test`, `pnpm typecheck`, schema validation).
+
+---
+
+## License & Attribution
+
+### Shikigami Source Code
+
+**Code**: MIT (see [`LICENSE`](LICENSE) — to be added).
+**Default sprite character `linh-pixel`**: MIT (procedurally generated, our own code).
+**Production Linh character** (`characters/linh/`): will ship under CC-BY-SA-4.0 when assets are finalized.
+
+### Dependency Licenses (audited)
+
+All dependencies are **permissive and MIT-compatible**. No GPL, LGPL, or proprietary runtime blobs.
+
+**Rust crates** (`cargo tree --depth 1`):
+
+| Crate | License |
+|-------|---------|
+| `tauri`, `tauri-plugin-fs` | Apache-2.0 OR MIT |
+| `tokio`, `axum`, `tower`, `tower-http`, `tracing`, `tracing-subscriber` | MIT |
+| `serde`, `serde_json`, `regex`, `once_cell`, `hex`, `rand`, `anyhow`, `thiserror`, `dirs` | MIT OR Apache-2.0 |
+| `subtle` | BSD-3-Clause |
+
+**npm packages** (direct deps):
+
+| Package | License |
+|---------|---------|
+| `@tauri-apps/api`, `@tauri-apps/cli`, `@tauri-apps/plugin-fs` | Apache-2.0 OR MIT |
+| `react`, `react-dom`, `@types/react`, `@types/react-dom` | MIT |
+| `@vitejs/plugin-react`, `vite`, `zustand`, `eslint`, `prettier` | MIT |
+| `typescript` | Apache-2.0 |
+
+**Python** (`hooks/shikigami-hook.py`, `scripts/install-hook.py`, `characters/linh-pixel/src/generate.py`): uses only Python 3 stdlib + `Pillow` (HPND License — permissive, stdlib-compatible).
+
+### Assets
+
+- **App icon** (`src-tauri/icons/*`): procedurally generated at build time by `src-tauri/icons/` recipe. Renders the Japanese character `式` (ideograph, no copyright) using a system font on macOS (Hiragino Sans, bundled with macOS; output bitmap is a distributable derivative). Replace before v1.0 release.
+- **Reference images** under `characters/linh/reference/`: generated via OpenAI's image-generation tools during development. OpenAI Terms of Use grant users ownership of generated outputs with commercial use permitted; used here only as artist reference, not shipped in the runtime bundle.
+
+### Inspirations (referenced, not copied)
+
+Shikigami draws architectural inspiration from several open-source projects:
+
+- **[airi by moeru-ai](https://github.com/moeru-ai/airi)** (MIT) — plugin-protocol identity patterns, `[EMOTION:x]` prompt-tag idea, "Soul vs Stage" separation, pipeline stage naming. See [`docs/research/260422-airi-reusability-analysis.md`](docs/research/260422-airi-reusability-analysis.md) for a full audit. **No code is copied from airi into this repository.** Patterns and concepts are used under independent implementation.
+- **VSCode extension format** — inspiration for the `.shikigami` zip package layout.
+- **Live2D Cubism SDK** — explicitly kept out of the core runtime (ADR-000); deferred to an optional add-on in a separate repository to preserve truly-OSS status.
+
+### License Compatibility Conclusion
+
+Shikigami can ship and be redistributed under **MIT** without any carve-outs or special attribution beyond standard OSS credit. All dependencies are permissive. All inspirations are pattern-level with independent implementations. All asset pipelines use either our own procedural code or AI tools that grant output ownership.
+
+If you find an attribution gap or a license compatibility concern, please open an issue.
+
+---
+
+## Links
+
+- **Repository**: https://github.com/hoangperry/shikigami
+- **Issues**: https://github.com/hoangperry/shikigami/issues
+- **CI**: https://github.com/hoangperry/shikigami/actions
+
+---
+
+*"She watches what your agent actually does. She reacts with truth. Summoned by code, grounded in events."*
