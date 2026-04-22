@@ -20,7 +20,8 @@
       "allow": [
         { "path": "$HOME/.shikigami/characters/**" },
         { "path": "$RESOURCE/characters/**" },
-        { "path": "**/characters/**" }
+        { "path": "$HOME/coding/shikigami/characters/**" },
+        { "path": "$HOME/**/shikigami/characters/**" }
       ]
     }
   ]

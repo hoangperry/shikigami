@@ -42,7 +42,8 @@
         "scope": [
           "$HOME/.shikigami/characters/**",
           "$RESOURCE/characters/**",
-          "**/characters/**"
+          "$HOME/coding/shikigami/characters/**",
+          "$HOME/**/shikigami/characters/**"
         ]
       }
     }
