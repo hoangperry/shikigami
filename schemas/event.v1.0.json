@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shikigami.dev/schema/event/v1.0.json",
+  "title": "Shikigami Event Payload v1.0",
+  "description": "Event posted to POST /v1/events on the Shikigami local HTTP server. Consumed by the Hierarchical Fusion state machine (events → dominant state; event.text → texture modifier).",
+  "type": "object",
+  "required": ["schemaVersion", "source", "type"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Exact schema version. v0.1 of the app only accepts 1.0."
+    },
+    "source": {
+      "type": "string",
+      "enum": ["claude-code", "cursor", "windsurf", "generic"],
+      "description": "Originating AI tool. v0.1 accepts only 'claude-code'; others are reserved."
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "session_start",
+        "session_end",
+        "session_idle_short",
+        "session_idle_long",
+        "user_prompt",
+        "assistant_message",
+        "tool_start",
+        "tool_complete",
+        "error",
+        "destructive_op_detected",
+        "git_commit",
+        "git_push"
+      ],
+      "description": "Canonical event type that the state machine maps to a dominant state."
+    },
+    "tool": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Name of the tool being invoked (e.g., 'Bash', 'Edit', 'Read'). Relevant for tool_start / tool_complete."
+    },
+    "exitCode": {
+      "type": "integer",
+      "minimum": -128,
+      "maximum": 255,
+      "description": "Process exit code for tool_complete events. 0 indicates success; non-zero maps to warning state."
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "How long the tool ran, in milliseconds. Informational; not used for state mapping in v0.1."
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "warning", "error", "critical"],
+      "default": "info",
+      "description": "Severity tag. Scales state duration and suppresses texture modifier when 'critical'."
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 8192,
+      "description": "Optional free text associated with the event (e.g., commit message, error output, assistant response). Used for texture extraction via regex. Truncated at 8KB at ingest."
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Arbitrary additional key-value pairs. Not used for state mapping; may be displayed in debug overlay.",
+      "additionalProperties": true
+    }
+  },
+  "examples": [
+    {
+      "schemaVersion": "1.0",
+      "source": "claude-code",
+      "type": "tool_complete",
+      "tool": "Bash",
+      "exitCode": 0,
+      "durationMs": 1234,
+      "severity": "info"
+    },
+    {
+      "schemaVersion": "1.0",
+      "source": "claude-code",
+      "type": "git_commit",
+      "severity": "info",
+      "text": "fix critical bug, finally",
+      "metadata": {
+        "sha": "a1b2c3d",
+        "branch": "main"
+      }
+    },
+    {
+      "schemaVersion": "1.0",
+      "source": "claude-code",
+      "type": "destructive_op_detected",
+      "tool": "Bash",
+      "severity": "critical",
+      "text": "rm -rf /tmp/cache",
+      "metadata": {
+        "detected_pattern": "rm -rf"
+      }
+    },
+    {
+      "schemaVersion": "1.0",
+      "source": "claude-code",
+      "type": "tool_complete",
+      "tool": "pytest",
+      "exitCode": 1,
+      "severity": "error",
+      "text": "FAILED tests/test_foo.py::test_bar - AssertionError"
+    }
+  ]
+}

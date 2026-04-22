@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shikigami.dev/schema/manifest/v1.0.json",
+  "title": "Shikigami Character Manifest v1.0",
+  "description": "Metadata and state→asset mapping for a Shikigami character package (.shikigami). See docs/adr/003-character-package-format.md and docs/TDD.md §3.3.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "author",
+    "version",
+    "license",
+    "renderer",
+    "defaultState",
+    "states"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional self-reference for editor tooling."
+    },
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{2,63}$",
+      "description": "Stable unique identifier. Lowercase letters, digits, and hyphens. 3-64 chars. Used as filesystem directory name."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Human-readable display name."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Short description shown in the character library browser."
+    },
+    "author": {
+      "oneOf": [
+        { "type": "string", "minLength": 1, "maxLength": 120 },
+        {
+          "type": "object",
+          "required": ["name"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+            "url":  { "type": "string", "format": "uri", "maxLength": 2048 }
+          }
+        }
+      ],
+      "description": "Plain string for simple cases; object form when the author wants a URL attached."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[A-Za-z0-9.-]+)?(?:\\+[A-Za-z0-9.-]+)?$",
+      "description": "Semantic version. Must be bumped on every redistribution."
+    },
+    "license": {
+      "type": "string",
+      "enum": [
+        "MIT",
+        "Apache-2.0",
+        "CC0-1.0",
+        "CC-BY-4.0",
+        "CC-BY-SA-4.0",
+        "CC-BY-NC-4.0",
+        "CC-BY-NC-SA-4.0"
+      ],
+      "description": "SPDX license identifier. v0.1 accepts a fixed set of common permissive/creative-commons licenses. LICENSE file content must match."
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 32 },
+      "maxItems": 16,
+      "uniqueItems": true,
+      "description": "Free-form tags for library search and filtering."
+    },
+    "renderer": {
+      "type": "string",
+      "const": "sprite",
+      "description": "Renderer type. v0.1 supports only 'sprite'; 'live2d' reserved for the optional add-on (ADR-000)."
+    },
+    "defaultState": {
+      "type": "string",
+      "description": "State loaded immediately on character activation. Must be a key of states."
+    },
+    "states": {
+      "type": "object",
+      "minProperties": 2,
+      "description": "State name → StateDefinition. Must include at least 'idle' and 'happy' (minimum viable character).",
+      "required": ["idle", "happy"],
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]{0,31}$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/StateDefinition"
+      }
+    },
+    "emotionOverrides": {
+      "type": "object",
+      "description": "Character-specific text → texture overrides. Keys are literal strings or simple regex fragments the runtime searches for in event.text. Higher priority than default texture patterns.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "texture": {
+            "type": "string",
+            "enum": ["relieved", "playful", "exhausted", "alarmed", "cute", "smug"]
+          },
+          "state": {
+            "type": "string",
+            "description": "Optionally override the dominant state instead of (or in addition to) the texture."
+          }
+        },
+        "anyOf": [
+          { "required": ["texture"] },
+          { "required": ["state"] }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "StateDefinition": {
+      "type": "object",
+      "required": ["path", "fps"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^assets/states/[a-z][a-z0-9_]*(/[a-z][a-z0-9_]*)?$",
+          "description": "Relative path inside the package to the directory containing frame_NN.webp|png files. Must remain inside assets/states/."
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60,
+          "description": "Target playback framerate. The state machine uses this for timing; renderer may decouple actual render FPS."
+        },
+        "loop": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, the animation loops while the state is active. If false, the animation plays once and transitions to `then` (or falls back to 'idle' if `then` is omitted)."
+        },
+        "then": {
+          "type": "string",
+          "description": "State to transition to after a non-looping animation completes. Must match a key of the parent states object, or 'idle'."
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000,
+          "description": "Hint for the state machine about how long the state should last for non-looping animations. The resolver uses this before scaling by severity."
+        },
+        "textures": {
+          "type": "object",
+          "description": "Optional texture-variant asset paths. Keys are canonical texture names. Unknown textures at runtime fall back to the base `path` animation.",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^assets/states/[a-z][a-z0-9_]*(/[a-z][a-z0-9_]*)?$"
+          },
+          "propertyNames": {
+            "enum": ["relieved", "playful", "exhausted", "alarmed", "cute", "smug"]
+          }
+        },
+        "blendable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether the renderer may crossfade OUT of this state. Instant-only states (e.g., extreme warning) can set this to false."
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "schemaVersion": "1.0",
+      "id": "linh-secretary",
+      "name": "Linh",
+      "description": "Your calm, competent secretary. Watches code with quiet attention.",
+      "author": {
+        "name": "hoangperry",
+        "url": "https://github.com/hoangperry"
+      },
+      "version": "1.0.0",
+      "license": "CC-BY-SA-4.0",
+      "tags": ["anime", "chibi", "secretary", "sfw"],
+      "renderer": "sprite",
+      "defaultState": "idle",
+      "states": {
+        "idle":    { "path": "assets/states/idle",    "fps": 12, "loop": true },
+        "happy":   { "path": "assets/states/happy",   "fps": 15, "loop": false, "then": "idle", "durationMs": 1000,
+                     "textures": { "relieved": "assets/states/happy_relieved" } },
+        "focused": { "path": "assets/states/focused", "fps": 12, "loop": true },
+        "warning": { "path": "assets/states/warning", "fps": 18, "loop": true, "blendable": false },
+        "sleepy":  { "path": "assets/states/sleepy",  "fps": 10, "loop": true }
+      },
+      "emotionOverrides": {
+        "finally": { "texture": "relieved" }
+      }
+    }
+  ]
+}
