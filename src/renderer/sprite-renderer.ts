@@ -1,8 +1,6 @@
 // PixiJS v8 sprite renderer — Phase 2.
-//
-// Takes an ActiveCharacter + animation key, plays the corresponding frame
-// sequence on a transparent canvas. Supports crossfade transitions between
-// states.
+// Loads an ActiveCharacter's frame sequences, plays them on a transparent
+// canvas, supports crossfade transitions between states.
 
 import { Application, Assets, Sprite, Texture } from "pixi.js";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -33,15 +31,16 @@ export class SpriteRenderer {
 
   async mount(container: HTMLElement): Promise<void> {
     this.container = container;
-    const app = new Application({
+    const app = new Application();
+    await app.init({
       resizeTo: container,
       backgroundAlpha: 0,
       antialias: false,
       resolution: window.devicePixelRatio ?? 1,
       autoDensity: true,
     });
-    container.appendChild(app.view as unknown as HTMLCanvasElement);
-    app.ticker.add(() => this.tick(app.ticker.deltaMS));
+    container.appendChild(app.canvas);
+    app.ticker.add((ticker) => this.tick(ticker.deltaMS));
     this.app = app;
   }
 
@@ -60,15 +59,9 @@ export class SpriteRenderer {
         durationMs: state.duration_ms,
       });
     }
-    // Kick off the default state.
     this.transitionTo(character.default_state);
   }
 
-  /**
-   * Resolve animation key with graceful fallback:
-   *   happy_relieved → happy (if texture not supported)
-   *   unknown        → default_state
-   */
   private resolveAnimKey(requested: string): string {
     if (this.animations.has(requested)) return requested;
     const underscore = requested.indexOf("_");
@@ -128,10 +121,7 @@ export class SpriteRenderer {
   private async loadFrames(state: StatePayload): Promise<Texture[]> {
     const urls = state.frames.map((p) => convertFileSrc(p));
     const textures = await Promise.all(
-      urls.map(async (u) => {
-        const tex = (await Assets.load(u)) as Texture;
-        return tex;
-      }),
+      urls.map(async (u) => (await Assets.load(u)) as Texture),
     );
     return textures;
   }
@@ -149,16 +139,11 @@ export class SpriteRenderer {
       this.accumulatorMs -= framePeriod;
       this.frameIndex += 1;
       if (this.frameIndex >= anim.textures.length) {
-        if (anim.loop) {
-          this.frameIndex = 0;
-        } else {
-          this.frameIndex = anim.textures.length - 1;
-        }
+        this.frameIndex = anim.loop ? 0 : anim.textures.length - 1;
       }
       this.currentSprite.texture = anim.textures[this.frameIndex];
     }
 
-    // Auto-transition after non-looping duration.
     if (!anim.loop && anim.durationMs && this.elapsedMs >= anim.durationMs) {
       const then = anim.then ?? this.character?.default_state ?? "idle";
       this.transitionTo(then);
@@ -167,10 +152,9 @@ export class SpriteRenderer {
 }
 
 function centerSprite(sprite: Sprite, app: Application): void {
-  const view = app.view as unknown as HTMLCanvasElement;
-  const maxDim = Math.min(view.width, view.height);
+  const maxDim = Math.min(app.canvas.width, app.canvas.height);
   const scale = (maxDim * 0.9) / Math.max(sprite.texture.width, sprite.texture.height);
   sprite.anchor.set(0.5, 0.5);
-  sprite.position.set(view.width / 2, view.height / 2);
+  sprite.position.set(app.canvas.width / 2, app.canvas.height / 2);
   sprite.scale.set(scale);
 }
