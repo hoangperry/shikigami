@@ -70,9 +70,9 @@ impl CharacterManifest {
         {
             issues.push(format!("id {:?} has invalid characters", self.id));
         }
-        if self.renderer != "sprite" {
+        if self.renderer != "sprite" && self.renderer != "live2d" {
             issues.push(format!(
-                "renderer {:?} not supported in v1.0 (only \"sprite\")",
+                "renderer {:?} not supported in v1.0 (only \"sprite\" or \"live2d\")",
                 self.renderer
             ));
         }
@@ -146,8 +146,21 @@ mod tests {
     #[test]
     fn invalid_renderer_fails_validation() {
         let mut m: CharacterManifest = serde_json::from_str(LINH_PIXEL).unwrap();
-        m.renderer = "live2d".into();
+        m.renderer = "unicorn".into();
         let issues = m.validate();
         assert!(issues.iter().any(|i| i.contains("renderer")));
+    }
+
+    #[test]
+    fn live2d_renderer_is_valid() {
+        let mut m: CharacterManifest = serde_json::from_str(LINH_PIXEL).unwrap();
+        m.renderer = "live2d".into();
+        // live2d accepted; other validation issues may remain but none
+        // should mention renderer
+        let issues = m.validate();
+        assert!(
+            !issues.iter().any(|i| i.contains("renderer")),
+            "unexpected renderer validation issue: {issues:?}"
+        );
     }
 }

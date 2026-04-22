@@ -15,8 +15,11 @@ import {
   type CharacterSummary,
 } from "../ipc/commands";
 import { SpriteRenderer } from "../renderer/sprite-renderer";
+import { Live2DRenderer } from "../renderer/live2d-renderer";
 import { SpeechBubble } from "./speech-bubble";
 import { SettingsModal } from "./settings-modal";
+
+type AnyRenderer = SpriteRenderer | Live2DRenderer;
 
 type ResolvedState = {
   dominant: string;
@@ -31,9 +34,24 @@ function animKey(state: ResolvedState): string {
   return state.texture ? `${state.dominant}_${state.texture}` : state.dominant;
 }
 
+// Detect which renderer to use. Live2D characters have a frame pointing to
+// a .model3.json file; sprite characters point to .png/.webp frames.
+function guessRendererType(
+  character: ActiveCharacter,
+): "sprite" | "live2d" {
+  for (const state of Object.values(character.states)) {
+    for (const frame of state.frames) {
+      if (frame.endsWith(".model3.json") || frame.endsWith(".moc3")) {
+        return "live2d";
+      }
+    }
+  }
+  return "sprite";
+}
+
 export function CharacterStage() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const rendererRef = useRef<SpriteRenderer | null>(null);
+  const rendererRef = useRef<AnyRenderer | null>(null);
   const [activeCharacter, setActiveCharacter] = useState<ActiveCharacter | null>(null);
   const [allCharacters, setAllCharacters] = useState<CharacterSummary[]>([]);
   const [lastState, setLastState] = useState<ResolvedState | null>(null);
@@ -82,11 +100,10 @@ export function CharacterStage() {
     };
   }, []);
 
-  // Mount PixiJS + load character once.
+  // Mount the correct renderer for the active character, load its assets.
   useEffect(() => {
     let cancelled = false;
-    const renderer = new SpriteRenderer();
-    rendererRef.current = renderer;
+    let renderer: AnyRenderer | null = null;
 
     (async () => {
       try {
@@ -96,14 +113,20 @@ export function CharacterStage() {
         log(`found ${chars.length} character(s): ${chars.map((c) => c.id).join(", ") || "(none)"}`);
 
         if (!containerRef.current) return;
-        await renderer.mount(containerRef.current);
-
         const character = await getActiveCharacter();
         if (cancelled) return;
         if (!character) {
           log("no active character");
           return;
         }
+
+        const rendererType = guessRendererType(character);
+        log(`using ${rendererType} renderer for ${character.id}`);
+        renderer =
+          rendererType === "live2d" ? new Live2DRenderer() : new SpriteRenderer();
+        rendererRef.current = renderer;
+
+        await renderer.mount(containerRef.current);
         await renderer.setCharacter(character);
         setActiveCharacter(character);
         log(`ready — default state: ${character.default_state}`);
@@ -116,7 +139,7 @@ export function CharacterStage() {
 
     return () => {
       cancelled = true;
-      renderer.dispose();
+      renderer?.dispose();
       rendererRef.current = null;
     };
   }, []);

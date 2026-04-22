@@ -33,16 +33,15 @@ export class SpriteRenderer {
 
   async mount(container: HTMLElement): Promise<void> {
     this.container = container;
-    const app = new Application();
-    await app.init({
+    const app = new Application({
       resizeTo: container,
       backgroundAlpha: 0,
-      antialias: false, // pixel-art sprites want sharp edges
+      antialias: false,
       resolution: window.devicePixelRatio ?? 1,
       autoDensity: true,
     });
-    container.appendChild(app.canvas);
-    app.ticker.add((ticker) => this.tick(ticker.deltaMS));
+    container.appendChild(app.view as unknown as HTMLCanvasElement);
+    app.ticker.add(() => this.tick(app.ticker.deltaMS));
     this.app = app;
   }
 
@@ -168,9 +167,10 @@ export class SpriteRenderer {
 }
 
 function centerSprite(sprite: Sprite, app: Application): void {
-  const maxDim = Math.min(app.canvas.width, app.canvas.height);
+  const view = app.view as unknown as HTMLCanvasElement;
+  const maxDim = Math.min(view.width, view.height);
   const scale = (maxDim * 0.9) / Math.max(sprite.texture.width, sprite.texture.height);
   sprite.anchor.set(0.5, 0.5);
-  sprite.position.set(app.canvas.width / 2, app.canvas.height / 2);
+  sprite.position.set(view.width / 2, view.height / 2);
   sprite.scale.set(scale);
 }

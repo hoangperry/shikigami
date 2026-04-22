@@ -83,8 +83,8 @@
     },
     "renderer": {
       "type": "string",
-      "const": "sprite",
-      "description": "Renderer type. v0.1 supports only 'sprite'; 'live2d' reserved for the optional add-on (ADR-000)."
+      "enum": ["sprite", "live2d"],
+      "description": "Renderer type. 'sprite' = frame sequence, 'live2d' = Cubism 4 model. See ADR-000 for licensing notes."
     },
     "defaultState": {
       "type": "string",
