@@ -1,6 +1,23 @@
 // Typed wrappers around Tauri invoke() so components never touch string commands.
 import { invoke } from "@tauri-apps/api/core";
 
+export type Settings = {
+  port: number;
+  active_character: string | null;
+  click_through: boolean;
+  opacity: number;
+  scale: number;
+  auto_hide_during_capture: boolean;
+};
+
+export function getSettings(): Promise<Settings> {
+  return invoke<Settings>("get_settings");
+}
+
+export function updateSettings(patch: Partial<Settings>): Promise<Settings> {
+  return invoke<Settings>("update_settings", { patch });
+}
+
 export type CharacterSummary = {
   id: string;
   name: string;

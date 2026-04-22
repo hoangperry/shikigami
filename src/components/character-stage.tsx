@@ -1,15 +1,22 @@
-// Character stage — mounts the PixiJS renderer and keeps it synchronized
-// with the latest ResolvedState received from the Rust backend.
+// Character stage — mounts the PixiJS renderer, drives it from
+// state_changed events, and hosts the speech bubble + settings modal.
 //
-// - Entire window is draggable via `data-tauri-drag-region` on the
-//   character layer (no-drag on the diagnostic panel so it stays clickable).
-// - Diagnostic overlay is HIDDEN by default, toggled with Cmd/Ctrl+I.
+// - Entire window is draggable via `data-tauri-drag-region`
+// - Diagnostics: hidden by default, Cmd/Ctrl+I to toggle (or tray menu)
+// - Preferences: Cmd/Ctrl+, or tray "Preferences…"
+// - Speech bubble: event-triggered, near the character, auto-fades
 
 import { useEffect, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { getActiveCharacter, listCharacters } from "../ipc/commands";
-import type { ActiveCharacter, CharacterSummary } from "../ipc/commands";
+import {
+  getActiveCharacter,
+  listCharacters,
+  type ActiveCharacter,
+  type CharacterSummary,
+} from "../ipc/commands";
 import { SpriteRenderer } from "../renderer/sprite-renderer";
+import { SpeechBubble } from "./speech-bubble";
+import { SettingsModal } from "./settings-modal";
 
 type ResolvedState = {
   dominant: string;
@@ -17,6 +24,7 @@ type ResolvedState = {
   severity: string;
   duration_ms: number;
   event_id: number;
+  text: string | null;
 };
 
 function animKey(state: ResolvedState): string {
@@ -31,22 +39,47 @@ export function CharacterStage() {
   const [lastState, setLastState] = useState<ResolvedState | null>(null);
   const [diag, setDiag] = useState<string[]>(["boot"]);
   const [showDiag, setShowDiag] = useState<boolean>(false);
+  const [showSettings, setShowSettings] = useState<boolean>(false);
 
   const log = (msg: string) => {
     console.log("[shikigami]", msg);
     setDiag((d) => [...d.slice(-9), msg]);
   };
 
-  // Cmd/Ctrl + I toggles the diagnostic overlay.
+  // Keyboard shortcuts.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "i") {
-        e.preventDefault();
-        setShowDiag((v) => !v);
+      if (e.metaKey || e.ctrlKey) {
+        if (e.key.toLowerCase() === "i") {
+          e.preventDefault();
+          setShowDiag((v) => !v);
+        } else if (e.key === ",") {
+          e.preventDefault();
+          setShowSettings((v) => !v);
+        }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Tray menu events.
+  useEffect(() => {
+    const unsubs: UnlistenFn[] = [];
+    (async () => {
+      unsubs.push(
+        await listen("tray:toggle_diag", () => setShowDiag((v) => !v)),
+      );
+      unsubs.push(
+        await listen("tray:open_settings", () => setShowSettings(true)),
+      );
+      unsubs.push(
+        await listen("tray:position_reset", () => log("window reset to center")),
+      );
+    })();
+    return () => {
+      unsubs.forEach((u) => u());
+    };
   }, []);
 
   // Mount PixiJS + load character once.
@@ -57,28 +90,20 @@ export function CharacterStage() {
 
     (async () => {
       try {
-        log("listing characters…");
         const chars = await listCharacters();
         if (cancelled) return;
         setAllCharacters(chars);
         log(`found ${chars.length} character(s): ${chars.map((c) => c.id).join(", ") || "(none)"}`);
 
-        if (!containerRef.current) {
-          log("container ref missing");
-          return;
-        }
-        log("mounting pixi app…");
+        if (!containerRef.current) return;
         await renderer.mount(containerRef.current);
-        log("pixi mounted");
 
-        log("fetching active character…");
         const character = await getActiveCharacter();
         if (cancelled) return;
         if (!character) {
           log("no active character");
           return;
         }
-        log(`loading character ${character.id} (${Object.keys(character.states).length} states)`);
         await renderer.setCharacter(character);
         setActiveCharacter(character);
         log(`ready — default state: ${character.default_state}`);
@@ -96,7 +121,7 @@ export function CharacterStage() {
     };
   }, []);
 
-  // Subscribe to state_changed events → drive the renderer.
+  // Subscribe to state_changed events → drive the renderer + bubble.
   useEffect(() => {
     if (!activeCharacter) return;
     let unlisten: UnlistenFn | null = null;
@@ -145,8 +170,7 @@ export function CharacterStage() {
         }}
       />
 
-      {/* PixiJS canvas — above the drag layer, but pointer-events:none so
-          drags still reach the drag-region behind it. */}
+      {/* PixiJS canvas — above the drag layer, pointer-events:none so drags pass through. */}
       <div
         ref={containerRef}
         style={{
@@ -157,10 +181,15 @@ export function CharacterStage() {
         }}
       />
 
+      {/* Speech bubble — event-triggered, near top of canvas. */}
+      <SpeechBubble state={lastState} lastEventText={lastState?.text ?? undefined} />
+
+      {/* Settings modal. */}
+      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
+
       {/* Diagnostic overlay — hidden by default, toggle with Cmd/Ctrl+I. */}
       {showDiag && (
         <div
-          data-tauri-drag-region={false}
           style={{
             position: "absolute",
             top: 8,
@@ -179,11 +208,10 @@ export function CharacterStage() {
           }}
         >
           <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>
-            Shikigami v0.1.0-alpha.0 · (⌘I to hide)
+            Shikigami v0.1.0-alpha.0 · (⌘I to hide, ⌘, for prefs)
           </div>
           <div>
-            characters: {allCharacters.length} · active:{" "}
-            {activeCharacter?.id ?? "—"}
+            characters: {allCharacters.length} · active: {activeCharacter?.id ?? "—"}
           </div>
           <div>
             state:{" "}

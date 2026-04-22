@@ -29,6 +29,10 @@ pub fn resolve(event: &EventPayload) -> ResolvedState {
         severity,
         duration_ms,
         event_id: EVENT_COUNTER.fetch_add(1, Ordering::Relaxed),
+        text: event
+            .text
+            .as_deref()
+            .map(|t| t.chars().take(160).collect::<String>()),
     }
 }
 

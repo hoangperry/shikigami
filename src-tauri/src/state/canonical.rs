@@ -53,6 +53,8 @@ pub struct ResolvedState {
     pub duration_ms: u32,
     /// Monotonic counter for debugging; not cryptographic.
     pub event_id: u64,
+    /// Truncated copy of `event.text` (<=160 chars) for UI display.
+    pub text: Option<String>,
 }
 
 impl ResolvedState {

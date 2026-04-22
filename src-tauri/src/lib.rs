@@ -13,6 +13,7 @@ pub mod character;
 pub mod config;
 pub mod event;
 pub mod state;
+pub mod tray;
 
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
@@ -48,12 +49,16 @@ pub fn run() {
                 version = env!("CARGO_PKG_VERSION"),
                 "shikigami.app starting"
             );
+            if let Err(e) = tray::install(app.handle()) {
+                tracing::warn!("failed to install tray: {e}");
+            }
             start_event_pipeline(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             ping,
             get_settings,
+            update_settings,
             list_characters,
             get_active_character,
             set_active_character
@@ -124,6 +129,21 @@ fn ping() -> &'static str {
 #[tauri::command]
 fn get_settings(_app: AppHandle) -> Settings {
     Settings::load()
+}
+
+#[tauri::command]
+fn update_settings(patch: serde_json::Value) -> Result<Settings, String> {
+    let mut current = Settings::load();
+    let mut merged =
+        serde_json::to_value(&current).map_err(|e| format!("serialize failed: {e}"))?;
+    if let (Some(m), Some(p)) = (merged.as_object_mut(), patch.as_object()) {
+        for (k, v) in p {
+            m.insert(k.clone(), v.clone());
+        }
+    }
+    current = serde_json::from_value(merged).map_err(|e| format!("merge failed: {e}"))?;
+    current.save().map_err(|e| format!("persist failed: {e}"))?;
+    Ok(current)
 }
 
 #[tauri::command]
