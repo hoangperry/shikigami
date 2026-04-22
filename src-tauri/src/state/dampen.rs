@@ -25,12 +25,7 @@ impl Dampener {
 
     /// Returns `true` when the event should proceed down the pipeline.
     /// Returns `false` when it should be silently dropped (duplicate).
-    pub fn observe(
-        &mut self,
-        event_type: EventType,
-        severity: Severity,
-        now: Instant,
-    ) -> bool {
+    pub fn observe(&mut self, event_type: EventType, severity: Severity, now: Instant) -> bool {
         if severity == Severity::Critical {
             self.record(event_type, severity, now);
             return true;

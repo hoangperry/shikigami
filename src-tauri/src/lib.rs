@@ -30,7 +30,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
-            tracing::info!(version = env!("CARGO_PKG_VERSION"), "shikigami.app starting");
+            tracing::info!(
+                version = env!("CARGO_PKG_VERSION"),
+                "shikigami.app starting"
+            );
             start_event_pipeline(app.handle().clone());
             Ok(())
         })
@@ -69,7 +72,11 @@ fn start_event_pipeline(app: AppHandle) {
     });
 
     // Choose a preferred port: existing config > default.
-    let preferred = if settings.port == 0 { DEFAULT_PORT } else { settings.port };
+    let preferred = if settings.port == 0 {
+        DEFAULT_PORT
+    } else {
+        settings.port
+    };
 
     tauri::async_runtime::spawn(async move {
         match event::serve(app_state, preferred, PORT_SCAN_SPAN).await {

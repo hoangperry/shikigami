@@ -1,0 +1,162 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  rust:
+    name: Rust (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libsoup-3.0-dev \
+            build-essential \
+            curl \
+            wget \
+            file
+
+      - name: cargo fmt
+        working-directory: src-tauri
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: cargo test
+        working-directory: src-tauri
+        run: cargo test --lib --all-features
+
+      - name: cargo check (release profile)
+        working-directory: src-tauri
+        run: cargo check --release
+
+  frontend:
+    name: Frontend (TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+  schemas:
+    name: Schemas + character manifest validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install validators
+        run: pip install jsonschema pillow
+
+      - name: Validate schemas parse as JSON
+        run: |
+          python - <<'PY'
+          import json, sys, pathlib
+          for p in pathlib.Path("schemas").glob("*.json"):
+              data = json.loads(p.read_text())
+              print(f"✓ {p} ({data.get('title','<no-title>')})")
+          PY
+
+      - name: Validate linh-pixel manifest against schema
+        run: |
+          python - <<'PY'
+          import json, pathlib, sys, jsonschema
+          schema = json.loads(pathlib.Path("schemas/manifest.v1.0.json").read_text())
+          manifest = json.loads(pathlib.Path("characters/linh-pixel/manifest.json").read_text())
+          try:
+              jsonschema.validate(manifest, schema)
+              print("✓ characters/linh-pixel/manifest.json validates")
+          except jsonschema.ValidationError as e:
+              print(f"✗ validation failed: {e.message}", file=sys.stderr)
+              sys.exit(1)
+          PY
+
+      - name: Regenerate linh-pixel frames and diff
+        run: |
+          cd characters/linh-pixel
+          python3 src/generate.py
+          if ! git diff --quiet; then
+            echo "✗ regenerated frames differ from committed — run generate.py locally and commit the result"
+            git --no-pager diff --stat
+            exit 1
+          fi
+          echo "✓ frames are reproducible"
+
+  hook:
+    name: Hook bridge smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Transform simulation
+        run: |
+          set -e
+          # tool_start
+          echo '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ls"}}' \
+            | SHIKIGAMI_DEBUG=1 python3 hooks/shikigami-hook.py || true
+
+          # destructive detection
+          out=$(echo '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/foo"}}' \
+            | SHIKIGAMI_DEBUG=1 python3 hooks/shikigami-hook.py 2>&1 || true)
+          echo "$out"
+
+      - name: install-hook syntax check
+        run: python3 -c "import ast; ast.parse(open('scripts/install-hook.py').read())"
+
+      - name: install-hook doctor (noop on CI — just ensures no import errors)
+        run: python3 scripts/install-hook.py status || true

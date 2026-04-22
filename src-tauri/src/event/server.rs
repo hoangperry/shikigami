@@ -28,11 +28,7 @@ pub struct AppState {
 
 /// Find the first bindable port in the range `preferred..preferred+span` and
 /// start serving on it. Returns the bound port.
-pub async fn serve(
-    state: Arc<AppState>,
-    preferred_port: u16,
-    span: u16,
-) -> anyhow::Result<u16> {
+pub async fn serve(state: Arc<AppState>, preferred_port: u16, span: u16) -> anyhow::Result<u16> {
     let (listener, port) = bind_with_recovery(preferred_port, span).await?;
     let app = Router::new()
         .route("/v1/events", post(ingest_event))
@@ -46,10 +42,7 @@ pub async fn serve(
     Ok(port)
 }
 
-async fn bind_with_recovery(
-    preferred: u16,
-    span: u16,
-) -> anyhow::Result<(TcpListener, u16)> {
+async fn bind_with_recovery(preferred: u16, span: u16) -> anyhow::Result<(TcpListener, u16)> {
     let span = span.max(1);
     for offset in 0..span {
         let port = preferred.saturating_add(offset);

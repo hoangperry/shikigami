@@ -1,8 +1,8 @@
 //! Bearer token generation, storage, and constant-time verification.
 
 use rand::RngCore;
-use subtle::ConstantTimeEq;
 use std::path::Path;
+use subtle::ConstantTimeEq;
 
 pub fn generate_token() -> String {
     let mut bytes = [0u8; 32];

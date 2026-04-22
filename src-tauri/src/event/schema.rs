@@ -13,11 +13,7 @@ pub struct EventPayload {
     pub event_type: EventType,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tool: Option<String>,
-    #[serde(
-        default,
-        rename = "exitCode",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(default, rename = "exitCode", skip_serializing_if = "Option::is_none")]
     pub exit_code: Option<i32>,
     #[serde(
         default,

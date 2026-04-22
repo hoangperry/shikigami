@@ -50,7 +50,10 @@ mod tests {
 
     #[test]
     fn relieved_from_finally() {
-        assert_eq!(extract("fix critical bug, finally"), Some(Texture::Relieved));
+        assert_eq!(
+            extract("fix critical bug, finally"),
+            Some(Texture::Relieved)
+        );
     }
 
     #[test]
