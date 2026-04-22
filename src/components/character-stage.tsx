@@ -127,7 +127,32 @@ export function CharacterStage() {
         rendererRef.current = renderer;
 
         await renderer.mount(containerRef.current);
-        await renderer.setCharacter(character);
+        try {
+          await renderer.setCharacter(character);
+        } catch (inner) {
+          // Live2D init can fail (CDN blocked, model load error). Fall back
+          // to the sprite renderer so the user never sees a blank window.
+          log(`setCharacter failed: ${String(inner)}`);
+          if (rendererType === "live2d") {
+            log("falling back to sprite renderer");
+            renderer.dispose();
+            renderer = new SpriteRenderer();
+            rendererRef.current = renderer;
+            if (containerRef.current) {
+              await renderer.mount(containerRef.current);
+              // Use whichever sprite character is available instead.
+              const fallback = chars.find((c) => c.id !== character.id);
+              if (fallback) {
+                const replacement = await getActiveCharacter();
+                if (replacement && replacement.id !== character.id) {
+                  await renderer.setCharacter(replacement);
+                }
+              }
+            }
+          } else {
+            throw inner;
+          }
+        }
         setActiveCharacter(character);
         log(`ready — default state: ${character.default_state}`);
       } catch (e) {
@@ -209,6 +234,33 @@ export function CharacterStage() {
 
       {/* Settings modal. */}
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
+
+      {/* Early-boot banner — always visible until a character is active, so
+          the window is never silent. */}
+      {!activeCharacter && (
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            padding: "10px 16px",
+            borderRadius: 10,
+            background: "rgba(20,20,30,0.75)",
+            color: "#f5f5f5",
+            fontSize: 12,
+            fontFamily:
+              "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+            zIndex: 5,
+            pointerEvents: "none",
+          }}
+        >
+          Shikigami · loading character…
+          <div style={{ opacity: 0.6, fontSize: 10, marginTop: 4 }}>
+            press ⌘I for diag
+          </div>
+        </div>
+      )}
 
       {/* Diagnostic overlay — hidden by default, toggle with Cmd/Ctrl+I. */}
       {showDiag && (

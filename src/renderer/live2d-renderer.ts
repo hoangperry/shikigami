@@ -23,6 +23,17 @@ import type { ActiveCharacter } from "../ipc/commands";
 
 type Live2DApp = Application;
 
+async function waitForCubismCore(timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if ((globalThis as Record<string, unknown>).Live2DCubismCore) return;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error(
+    "Live2DCubismCore did not load from CDN — check network / CSP",
+  );
+}
+
 export class Live2DRenderer {
   private app: Live2DApp | null = null;
   private container: HTMLElement | null = null;
@@ -55,6 +66,9 @@ export class Live2DRenderer {
     }
     // By convention the FIRST frame of defaultState is the model3.json file.
     const modelUrl = convertFileSrc(defaultState.frames[0]);
+
+    // Wait for the Cubism 4 core runtime loaded from the CDN.
+    await waitForCubismCore(8000);
 
     const model = await Live2DModel.from(modelUrl);
     this.app.stage.addChild(model as unknown as import("pixi.js").DisplayObject);
