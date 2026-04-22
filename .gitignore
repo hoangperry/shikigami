@@ -51,6 +51,7 @@ venv/
 .claude/
 .claude-mem/
 .claude-octopus/
+AGENTS.md
 CLAUDE.md.bak
 
 # Assets workspace (large raw files)

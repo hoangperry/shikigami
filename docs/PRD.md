@@ -1,48 +1,52 @@
 # Shikigami — Product Requirements Document
 
-> **Status**: Draft v0.1 · **Last Updated**: 2026-04-22 · **Owner**: @hoangperry
-> **Type**: Open-source desktop companion for AI coding assistants
+> **Status**: v0.2 (post-adversarial-review) · **Last Updated**: 2026-04-22 · **Owner**: @hoangperry
+> **Type**: Open-source desktop companion for agentic AI coding workflows
+> **Previous**: v0.1 — see `docs/reviews/PRD-v0.1-adversarial-review.md` for what changed and why
 
 ---
 
 ## 1. Executive Summary
 
-**Shikigami** (式神) is an open-source, cross-platform desktop companion that makes AI coding assistants feel *alive*. By parsing AI output in real-time and rendering an emotionally-reactive 2D character as a Picture-in-Picture overlay, Shikigami transforms the cold, text-only experience of agentic coding into something playful, warm, and sustainable during long sessions.
+**Shikigami** (式神) is an open-source desktop companion that gives AI coding assistants **visual proprioception** — a 2D animated character that reflects what your AI agent is actually doing in real time.
 
-**The vision**: A desktop full of spirits — each developer summons their own companion to sit beside them while they code. Characters are community-contributed, easy to create, and distributed as portable packages. The app starts with Claude Code integration and expands to any AI tool that can emit events (Cursor, Windsurf, ChatGPT, Gemini CLI, etc.).
+Unlike a "desktop pet" or pure novelty overlay, Shikigami reacts to **structured agent events** (tool calls, exit codes, errors, git operations) rather than cosmetic text patterns. The character is grounded in observable state, so reactions stay correct under load — no smiling while `rm -rf` is running.
+
+**v0.1 ships minimal and lovable**: macOS only, one character ("Linh"), sprite-sheet rendering, Claude Code integration only. Windows, Linux, Live2D, multi-AI adapters, and the character marketplace come in later releases once retention is proven.
 
 **Key differentiators:**
-- 🪶 Ultra-lightweight (Tauri-based, <50MB RAM idle)
-- 🎨 Dual-renderer architecture (Live2D + Sprite Sheet) — low barrier for artists
-- 🔌 Plug-and-play character packages (`.shikigami` format)
-- 🔒 100% local by default — no telemetry, no cloud
-- 🌏 Cross-platform from day one (Mac → Windows → Linux)
+- 🧠 **Event-driven core** — character reactions map to real agent actions, not kaomoji
+- 🛡️ **Context-aware severity** — destructive operations produce serious reactions, not cute ones
+- 💬 **Utility beyond novelty** — speech bubbles surface useful info (error summary, commit SHA) to fight UX fatigue
+- 🪶 **Truly open source** — MIT core with no proprietary dependencies
+- 🔌 **Extensible character format** — `.shikigami` zip bundle, low barrier for artists
 
 ---
 
 ## 2. Problem Statement
 
-### The Pain
+### The Pain (Reframed post-review)
 
-Developers using AI coding assistants spend 4–8+ hours per day interacting with a text-only terminal or chat interface. Despite the AI providing substantial cognitive assistance, the experience is:
+Agentic AI coding workflows generate **high cognitive load** with **low visual feedback**:
 
-1. **Emotionally flat** — responses are walls of text with zero visual feedback
-2. **Fatiguing over long sessions** — no "presence" companionship, isolation during deep work
-3. **Hard to read at-a-glance** — tool success/failure/warning states require parsing text
-4. **Lacking personality continuity** — different output styles feel disconnected
+1. **Context opacity** — agent is running multiple tools in parallel; users lose track of what's happening
+2. **Silent destructive operations** — dangerous commands execute inside otherwise-benign sessions
+3. **Flat terminal feedback** — success/failure/in-progress states all render as text
+4. **Long session fatigue** — 4–8 hours of text-only interaction with a capable collaborator feels isolating for users who *do* want presence (not all do, and that's fine)
 
-### Current Workarounds (Why They Fail)
+### Why Existing Tools Don't Solve This
 
-| Workaround | Why it falls short |
-|-----------|-------------------|
-| VTube Studio + manual triggers | Requires constant manual input, not reactive |
-| Music / ambient apps | Not tied to AI session state |
-| Anime wallpaper engines | Static, no interaction with AI output |
-| Custom Claude Code output styles (text only) | Still text, no visual element |
+| Tool | Gap |
+|------|-----|
+| VTube Studio / VSeeFace | Not wired to AI events; requires manual triggering |
+| Desktop pets (Shimeji, Mascot.js) | Static behavior, no agent awareness |
+| IDE status bars | Cramped, not proprioceptive |
+| Custom output styles (text only) | Still text, no visual layer |
+| macOS Focus modes / Do Not Disturb | Suppresses rather than surfaces state |
 
 ### Opportunity
 
-No existing product bridges the gap between **agentic AI tools** and **desktop pet / VTuber** ecosystems. Shikigami fills this niche with a focused, open-source, extensible solution.
+Bridge between **agentic AI tools** (lots of events, no visuals) and **desktop pet / VTuber ecosystems** (lots of visuals, no agent awareness). Shikigami's insight: treat character as **status indicator with personality**, not pure novelty.
 
 ---
 
@@ -50,363 +54,252 @@ No existing product bridges the gap between **agentic AI tools** and **desktop p
 
 ### Goals (SMART)
 
-| ID | Goal | Metric | Target (v1.0) | Priority |
-|----|------|--------|---------------|----------|
-| G1 | Ship cross-platform MVP | Platforms supported | Mac ✓ → Win → Linux | P0 |
-| G2 | Low resource footprint | RAM idle / peak | <80MB / <200MB | P0 |
-| G3 | Reactive emotion engine | Kaomoji → state mapping accuracy | ≥90% on test corpus | P0 |
-| G4 | Character extensibility | Time to add new character | <30 min for artist | P0 |
-| G5 | Open-source traction | GitHub stars | 1,000+ within 6 months | P1 |
-| G6 | Community character library | Community-contributed characters | ≥10 within 3 months | P1 |
-| G7 | Multi-AI tool support | Integration adapters | Claude Code + 2 others | P1 |
+| ID | Goal | Metric | v0.1 (3mo) | v1.0 (9mo) | Priority |
+|----|------|--------|-----------|-----------|----------|
+| G1 | Ship macOS MVP | Platforms | macOS ✓ | + Windows, Linux | P0 |
+| G2 | Event-grounded reactions | Reaction correctness on test corpus | ≥90% | ≥95% | P0 |
+| G3 | Context-aware severity | Destructive ops show correct state | 100% | 100% | P0 |
+| G4 | Low resource footprint | RAM idle / peak | <80MB / <200MB | same | P0 |
+| G5 | Fast onboarding | Install to first reaction | <3 min | <2 min | P0 |
+| G6 | Character extensibility | Time to ship a sprite character | <60 min (honest) | <30 min | P1 |
+| G7 | Community traction | GitHub stars | 100–200 | 500–1,000 | P1 |
+| G8 | Retention | Weekly active users | 15–25 | 100+ | P1 |
+| G9 | Community packs | External `.shikigami` packs published | 2–3 | 10+ | P1 |
+| G10 | Truly-OSS status | No proprietary deps in core | MIT clean | MIT clean | P0 |
 
-### Non-Success Metrics (explicitly not optimized)
+### Explicitly NOT Goals (v0.1)
 
-- ❌ Enterprise adoption / B2B sales
-- ❌ Monetization at launch (premium features deferred to v2+)
-- ❌ Mobile / tablet support
+- Cross-platform day-one
+- Live2D support
+- Multi-AI adapters (Cursor/Windsurf/ChatGPT)
+- Character marketplace
+- Enterprise / B2B
+- Mobile
+- TTS / voice
 
 ---
 
 ## 4. Non-Goals
 
-Explicitly out of scope for v1:
-
-- ❌ **3D character support** — 2D only (VRM/VRoid rendered flat is future scope)
-- ❌ **TTS / voice synthesis** — future feature, architecture will be ready but not shipped
-- ❌ **Multiplayer / shared sessions** — single-user local experience
-- ❌ **Character creation GUI** — contributors use external tools (Aseprite, Cubism) + CLI
-- ❌ **Telemetry / analytics** — zero tracking, privacy-first
-- ❌ **Cloud sync** — deferred to premium tier (v2+)
-- ❌ **Mobile app** — desktop-only
-- ❌ **AI-generated characters in-app** — contributors create assets externally
+- ❌ 3D characters (VRM rendered flat may come in v2+)
+- ❌ TTS / voice synthesis v1 (architecture-ready but not shipped)
+- ❌ Multiplayer / shared sessions
+- ❌ In-app character creation GUI (contributors use external tools + CLI)
+- ❌ Telemetry / analytics (zero tracking)
+- ❌ Cloud sync v1 (future premium tier)
+- ❌ Third-party JS renderers in v1 (security; removed per ADR-004)
+- ❌ URL-based character install in v1 (signing/trust story needed first)
 
 ---
 
 ## 5. User Personas
 
-### 5.1 Primary: **Linh — The Solo Indie Developer**
+### 5.1 Primary: **Linh — Solo Indie Developer**
 
-- **Profile**: 28, full-stack dev, uses Claude Code 6h/day, loves anime/game culture
-- **Setup**: Mac M2, 2x external monitors, VSCode + iTerm
-- **Pain**: "Long AI coding sessions feel lonely and exhausting. I miss having someone *present* while I code."
-- **Goals**: Enjoyable workflow, showcase personality, fun over utility
-- **Success for Linh**: "I smile when my character pouts at a failing test. My Discord friends ask what app I'm using."
+- 28, full-stack dev, 6h/day Claude Code user on Mac, anime/game culture
+- **Pain**: "I burned a production table last month because I missed a destructive command in the middle of a long session."
+- **Goals**: visible signal for risky operations, ambient presence during long sessions
+- **Success**: "Shikigami caught the `DROP TABLE` before I hit enter. Also, the shy animation after my first green CI was genuinely lovely."
 
-### 5.2 Secondary: **Kenji — The Open-Source Maintainer & Character Artist**
+### 5.2 Secondary: **Kenji — Character Artist / OSS Contributor**
 
-- **Profile**: 35, Live2D/Spine hobbyist, runs a small indie game studio
-- **Pain**: "I want to share my characters, but VTube Studio's model format is cumbersome and closed."
-- **Goals**: Contribute to open projects, portfolio visibility, low technical barrier to distribution
-- **Success for Kenji**: "I packaged my OC as `.shikigami` in one afternoon and got 200 downloads in a week."
+- 35, Aseprite/Procreate hobbyist, sells chibi commissions
+- **Pain**: "VTuber tools are cumbersome; I want to share my characters with more dev-aligned audiences."
+- **Goals**: easy packaging, clear license guidance, portfolio visibility
+- **Success**: "I shipped my first `.shikigami` pack in an afternoon. Twelve devs installed it in the first week."
 
-### 5.3 Tertiary: **Alex — The Curious AI Power User**
+### 5.3 Tertiary: **Alex — AI-curious Non-Developer** *(out of scope for v0.1)*
 
-- **Profile**: 22, uses Cursor/Windsurf/ChatGPT, non-developer (designer)
-- **Pain**: "I'd love this for my Cursor too, not just Claude Code."
-- **Goals**: Plug into any AI workflow
-- **Success for Alex**: "Shikigami works with my AI tool through an adapter I installed in 5 min."
+- 22, designer, uses Cursor
+- Deferred — v0.1 is Claude Code only. Cursor adapter in v0.4+.
 
 ---
 
 ## 6. Functional Requirements
 
+> Format: `FR-XXX` — acceptance criteria must be testable.
+
 ### 6.1 Core Engine (P0)
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
-| FR-001 | WebSocket server on localhost | Accepts POST events on configurable port (default `:7796`) |
-| FR-002 | Emotion parser module | Detects kaomoji, action text, keywords → emits `EmotionState` |
-| FR-003 | State transition machine | Smooth transitions between states with configurable timing |
-| FR-004 | Transparent always-on-top window | Frameless, click-through optional, resizable, repositionable |
-| FR-005 | System tray integration | Show/hide, switch character, open settings, quit |
-| FR-006 | Settings persistence | JSON config in OS-standard location |
-| FR-007 | Hot reload of characters | Detect filesystem changes, reload without app restart |
+| FR-001 | Local HTTP event endpoint | POST `http://127.0.0.1:<port>/v1/events` with bearer token auth (ADR-001) |
+| FR-002 | Event-driven state machine | Structured events → canonical state with severity scaling (ADR-002) |
+| FR-003 | Text-parse fallback | Opt-in kaomoji/keyword detection from `event.text` field |
+| FR-004 | Transparent always-on-top window | Frameless, resizable, click-through toggle, stays visible across virtual desktops |
+| FR-005 | System tray | Show/hide, swap character, open settings, pause reactions, quit |
+| FR-006 | Settings persistence | JSON config in `~/Library/Application Support/Shikigami/` |
+| FR-007 | Hot reload of characters | Detect `~/.shikigami/characters/` changes → reload without restart |
+| FR-008 | Severity scaling | Event `severity` influences state duration + intensity |
+| FR-009 | Event dampening | Identical events within 2s collapse to single state transition |
+| FR-058 | Sub-state texture composition | Dominant canonical state + optional texture modifier → final animation key `<dominant>[_<texture>]`. v0.1 textures: `relieved`, `playful`, `exhausted`, `alarmed`, `cute`, `smug`. (ADR-002 Hierarchical Fusion) |
+| FR-059 | Parallel text-texture extraction | Regex on `event.text` runs in parallel to Stage 1 state mapping. `critical` severity events skip texture layer. Missing `event.text` → no texture (dominant-only). |
 
 ### 6.2 Character System (P0)
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
-| FR-010 | Character Package format (`.shikigami`) | Standardized zip bundle with manifest schema v1.0 |
-| FR-011 | Manifest validation | Schema validation on load, graceful error messages |
-| FR-012 | Sprite Sheet renderer | Supports PNG sequences + JSON animation descriptors |
-| FR-013 | Live2D renderer | Cubism 4+ `.model3.json` support via official Web SDK |
-| FR-014 | Renderer plugin interface | Third-party renderers can register via plugin manifest |
-| FR-015 | Character library browser | Grid view of installed characters with preview |
-| FR-016 | Multi-character swap | Hot-swap active character without session interruption |
-| FR-017 | State mapping per character | Character-specific emotion overrides via manifest |
+| FR-010 | `.shikigami` package format v1.0 | Zip bundle with manifest.json, validated on install (ADR-003) |
+| FR-011 | Manifest schema validation | JSON Schema v2020-12; broken packages listed with diagnostic |
+| FR-012 | Sprite Sheet renderer | WebP frame sequences, auto-atlas at install time |
+| FR-013 | Minimum viable character | Only `idle` + `happy` states required; missing states fall back to `idle` |
+| FR-015 | Character library browser | Grid view with preview, install/uninstall |
+| FR-016 | Character hot-swap | Switch active character without session interruption |
+| FR-017 | Per-character emotion overrides | Manifest `emotionOverrides` for custom triggers |
 
-### 6.3 Integration Adapters (P0 — Claude Code; P1 — others)
+*FR-014 (third-party renderer plugins) removed per ADR-004.*
 
-| ID | Requirement | Acceptance Criteria |
-|----|-------------|---------------------|
-| FR-020 | Claude Code hook bridge | Shell/PowerShell script, installs via single command |
-| FR-021 | Generic HTTP adapter | Any tool can POST JSON events → triggers state |
-| FR-022 | Cursor adapter | P1 — supports Cursor's extension API or log tailing |
-| FR-023 | Windsurf adapter | P1 — same as Cursor |
-| FR-024 | ChatGPT/Claude web adapter | P2 — browser extension that emits events |
-
-### 6.4 Installation Methods (P0)
+### 6.3 Integration (P0)
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
-| FR-030 | App installer (Mac `.dmg`) | Universal binary, code-signed (best-effort for v1) |
-| FR-031 | App installer (Win `.msi`) | NSIS-based, Windows 10+ |
-| FR-032 | App installer (Linux) | AppImage + `.deb` + `.rpm` |
-| FR-033 | Character install — drag & drop | Drop `.shikigami` on app window → installed |
-| FR-034 | Character install — CLI | `shikigami install <path-or-url>` |
-| FR-035 | Character install — URL | Direct install from GitHub release URL |
-| FR-036 | Character install — registry (P1) | `shikigami install <name>` from public registry |
+| FR-020 | Claude Code hook bridge | One-line install: `shikigami install-hook` adds entries to `~/.claude/settings.json` |
+| FR-021 | Hook rollback | `shikigami uninstall-hook` removes all shikigami entries cleanly |
+| FR-022 | Hook diagnostics | `shikigami doctor` validates hook paths, token, port, transport |
 
-### 6.5 Settings & UX (P1)
+*FR-023/024/025 (Cursor, Windsurf, ChatGPT adapters) deferred to v0.4+.*
+
+### 6.4 UX & Utility (P0)
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
-| FR-040 | Window position/size memory | Restores on restart |
-| FR-041 | Character size slider | 50%–200% scale |
+| FR-040 | Window position memory | Restore on restart, reset-to-center if offscreen |
+| FR-041 | Character size slider | 50%–200% |
 | FR-042 | Opacity control | 20%–100% |
-| FR-043 | Click-through toggle | Allows clicks to pass through to apps behind |
-| FR-044 | Auto-start on login | Opt-in checkbox |
-| FR-045 | Debug overlay | Dev mode shows current state + incoming events |
+| FR-043 | Click-through toggle | Clicks pass through to apps behind |
+| FR-044 | Auto-start on login | Opt-in macOS Login Item |
+| FR-045 | Debug overlay | Dev mode shows current state + last 10 events |
+| FR-055 | **Speech bubble** (anti-fatigue utility) | Small bubble near character shows: error summary, commit SHA, long-running tool name/duration, destructive-op warning details |
+| FR-056 | **Context-aware severity** | `destructive_op_detected` → `warning` state with serious expression + red bubble, no cute reaction |
+| FR-057 | **Idle variety** | Random micro-interactions every 30–90s during `idle` (blink, look around, small pose shift) |
 
-### 6.6 Future Scope (Backlog — NOT in v1)
+### 6.5 Robustness — New post-review (P0)
 
-> Architecture must keep these doors open but v1 does **NOT** ship them.
+| ID | Requirement | Acceptance Criteria |
+|----|-------------|---------------------|
+| FR-050 | Port conflict recovery | On bind failure, scan next 10 ports, write chosen port to config, log clearly |
+| FR-051 | Multi-monitor + mixed-DPI | Correctly position and scale across monitors with different DPI; remember monitor per window |
+| FR-052 | Fullscreen / screen-record awareness | Auto-hide when OBS, QuickTime, Zoom screen-share, or fullscreen app detected (configurable) |
+| FR-053 | Lost-overlay recovery | Tray menu `Reset Position` option; auto-detect offscreen on startup and recenter |
+| FR-054 | Package corruption graceful fallback | Show `⚠ Broken` state in library with clickable diagnostic, never crash the app |
 
-| ID | Feature | Why deferred |
-|----|---------|--------------|
-| FR-F01 | TTS / voice output | Needs character voice assets, licensing complexity |
-| FR-F02 | Lip-sync animation | Depends on TTS + Live2D params |
-| FR-F03 | Cloud sync settings (premium) | Requires auth/backend infra — premium sustainability model |
-| FR-F04 | Character marketplace (web) | Requires moderation, hosting, payments infrastructure |
-| FR-F05 | Voice lines per state | Needs voice actor coordination |
-| FR-F06 | 3D character support (VRM) | Different renderer stack, future exploration |
-| FR-F07 | Mobile companion app | Different form factor, later phase |
-| FR-F08 | Multi-character on screen simultaneously | Complex state management |
-| FR-F09 | Character interactions with cursor/windows | Requires accessibility APIs per OS |
+### 6.6 Installation (P0)
 
----
+| ID | Requirement | Acceptance Criteria |
+|----|-------------|---------------------|
+| FR-030 | macOS `.dmg` | Universal binary (arm64 + x64), notarized best-effort for v0.1 |
+| FR-033 | Drag-drop install | Drop `.shikigami` onto app → character installed |
+| FR-034 | CLI install | `shikigami install <path-to-file-or-directory>` |
 
-## 7. Character System Architecture (Deep Dive)
+*FR-031/032 (Windows/Linux installers) deferred to v0.2/v0.3.*
+*FR-035 (URL install) and FR-036 (registry install) removed from v1.*
 
-> **This is the core extensibility foundation. Designed for longevity.**
+### 6.7 Future Scope (Backlog — architecture-ready, NOT shipped)
 
-### 7.1 Design Principles
-
-1. **Renderer-agnostic core** — emotion state machine knows nothing about rendering
-2. **Single package format** — `.shikigami` is the universal distribution unit
-3. **Low barrier for artists** — someone who knows Photoshop + PNG export should be able to ship a character
-4. **Forward compatibility** — schema versioning lets future formats coexist
-5. **Dependency explicit** — manifest declares renderer, version, requirements
-
-### 7.2 Layered Architecture
-
-```
-┌─────────────────────────────────────────────┐
-│       Application UI (React)                │
-├─────────────────────────────────────────────┤
-│       Character Manager                     │
-│   (load, validate, lifecycle)               │
-├─────────────────────────────────────────────┤
-│       Renderer Plugin Interface             │
-│                                             │
-│   ┌──────────┐ ┌─────────┐ ┌────────────┐  │
-│   │ Sprite   │ │ Live2D  │ │ Future...  │  │
-│   │ Renderer │ │ Renderer│ │ Spine/Lottie│ │
-│   └──────────┘ └─────────┘ └────────────┘  │
-├─────────────────────────────────────────────┤
-│       Emotion State Machine (Rust)          │
-│   (transitions, timing, blending hints)     │
-├─────────────────────────────────────────────┤
-│       Emotion Parser (Rust)                 │
-│   (regex + ML-lite classifier future)       │
-├─────────────────────────────────────────────┤
-│       WebSocket Server (Rust/tokio)         │
-└─────────────────────────────────────────────┘
-```
-
-### 7.3 Character Package Format — `.shikigami`
-
-A **zip bundle** (just like `.vsix`, `.jar`, `.docx`). Renamed extension for discoverability.
-
-```
-linh-secretary.shikigami
-├── manifest.json           ← required, schema-validated
-├── preview.webp            ← required, 512x512 thumbnail
-├── README.md               ← optional, character lore
-├── LICENSE                 ← required (CC-BY / CC-BY-SA / custom)
-├── assets/
-│   ├── states/
-│   │   ├── idle/
-│   │   │   ├── frame_00.webp
-│   │   │   ├── frame_01.webp
-│   │   │   └── ...
-│   │   ├── happy/
-│   │   ├── shy/
-│   │   └── focused/
-│   └── audio/              ← future (FR-F01)
-│       └── voice_lines/
-└── config/
-    ├── emotion_overrides.json  ← custom triggers for this character
-    └── anchor_points.json      ← render position hints
-```
-
-### 7.4 Manifest Schema (v1.0)
-
-```json
-{
-  "$schema": "https://shikigami.dev/schema/manifest/v1.0.json",
-  "schemaVersion": "1.0",
-  "id": "linh-secretary",
-  "name": "Linh (Secretary)",
-  "description": "Your charming executive assistant who watches over your code.",
-  "author": {
-    "name": "hoangperry",
-    "url": "https://github.com/hoangperry"
-  },
-  "version": "1.0.0",
-  "license": "CC-BY-SA-4.0",
-  "tags": ["anime", "chibi", "secretary", "SFW"],
-  "renderer": {
-    "type": "sprite",
-    "version": "1.0"
-  },
-  "defaultState": "idle",
-  "states": {
-    "idle": {
-      "path": "assets/states/idle",
-      "frameRate": 12,
-      "loop": true,
-      "blendable": true
-    },
-    "happy": {
-      "path": "assets/states/happy",
-      "frameRate": 15,
-      "loop": false,
-      "then": "idle",
-      "duration": 2000
-    },
-    "shy": {
-      "path": "assets/states/shy",
-      "frameRate": 10,
-      "loop": false,
-      "then": "idle"
-    }
-    // ... other states
-  },
-  "transitions": {
-    "default": { "duration": 200, "type": "crossfade" },
-    "idle->happy": { "duration": 150, "type": "crossfade" },
-    "any->warning": { "duration": 50, "type": "instant" }
-  },
-  "emotionOverrides": {
-    "(｡•̀ᴗ-)✧": "flirty",
-    "wink": "flirty"
-  },
-  "futureFeatures": {
-    "audio": false,
-    "lipSync": false
-  }
-}
-```
-
-### 7.5 Renderer Plugin Interface (TypeScript)
-
-```typescript
-interface CharacterRenderer {
-  readonly type: string;
-  readonly supportedSchemaVersion: string;
-
-  canHandle(manifest: CharacterManifest): boolean;
-  mount(container: HTMLElement, character: Character): Promise<void>;
-  transitionTo(state: EmotionState, options?: TransitionOptions): Promise<void>;
-  tick(deltaMs: number): void;
-  dispose(): void;
-}
-```
-
-Built-in renderers register via `RendererRegistry.register(new SpriteRenderer())`. Third-party renderers can be loaded from `~/.shikigami/renderers/*.js` (sandboxed).
-
-### 7.6 Emotion State Vocabulary (Canonical)
-
-Core states every character must support (fallback to `idle` if missing):
-
-| State | Description |
-|-------|-------------|
-| `idle` | Default, breathing loop |
-| `happy` | Positive completion, success |
-| `focused` | Working, processing |
-| `shy` | Compliment received, blushing moment |
-| `confused` | Unclear input, question |
-| `flirty` | Playful, teasing |
-| `warning` | Danger detected, caution |
-| `overloaded` | Logic conflict, overwhelmed |
-| `sleepy` | Idle too long |
-
-Characters MAY add custom states (e.g., `coffee_break`, `victory_pose`). Unknown states received from engine → fall back to nearest canonical via manifest hint.
-
-### 7.7 Adding a New Character (Contributor Flow)
-
-**Target: <30 min for an artist familiar with PNG export.**
-
-1. Clone template: `git clone shikigami/character-template`
-2. Replace PNG frames in `assets/states/*/`
-3. Edit `manifest.json` (name, id, preview)
-4. Run `shikigami pack .` → outputs `my-character.shikigami`
-5. Test: `shikigami install ./my-character.shikigami`
-6. Publish: GitHub release or submit to registry
+| ID | Feature | Deferred rationale |
+|----|---------|-------------------|
+| FR-F01 | TTS / voice output | Voice asset licensing, premium path |
+| FR-F02 | Lip-sync animation | Needs TTS + Live2D |
+| FR-F03 | Cloud sync settings (premium) | Sustainability tier, v2+ |
+| FR-F04 | Public character marketplace | Moderation/hosting infra |
+| FR-F05 | Per-state voice lines | Voice actor coordination |
+| FR-F06 | 3D / VRM support | Different renderer stack |
+| FR-F07 | Mobile companion | Different form factor |
+| FR-F08 | Multi-character simultaneous | State complexity |
+| FR-F09 | Cursor/window interactions | Accessibility APIs per-OS |
+| FR-F10 | **VMC protocol export** | Power-user bridge to VTube Studio / Warudo (Gemini suggestion) |
+| FR-F11 | **`shikigami-mind` LLM classifier sidecar** | Optional small local quantized LM (Phi-3-mini / Qwen2.5-0.5B) for semantic state classification. Runs in separate process, emits the same event schema as rule-based path. Deferred per Position D outcome in signal-source debate. |
 
 ---
 
-## 8. Animation Source Strategy (Deep Dive)
+## 7. Architecture Overview
 
-### 8.1 Tier 1: Sprite Sheet (Frame-Based) — Default & Community-First
-
-**Why**: Lowest barrier, most inclusive format.
-
-- **Source tools**: Aseprite, Photoshop, Procreate, Clip Studio, Krita — anything that exports PNG/WebP
-- **Frame rate**: 8–24 fps recommended (not 60 — save bandwidth)
-- **Format**: WebP preferred (smaller than PNG, supports alpha)
-- **Resolution**: 512×512 or 1024×1024 @ 2x — downscaled at runtime
-- **Atlas optimization**: CLI tool (`shikigami pack`) auto-generates sprite atlas for runtime perf
-
-### 8.2 Tier 2: Live2D Cubism — Flagship Quality
-
-**Why**: Industry standard for anime VTuber feel, smooth deformation.
-
-- **Format**: Cubism 4.x `.model3.json` + `.moc3` + textures
-- **SDK**: Official Cubism Web SDK (MIT-compatible for open source)
-- **State mapping**: Manifest maps emotion states → Cubism parameters + motion files
-- **License note**: Free Cubism models (CC) work fine; commercial models require Cubism license which users handle themselves
-
-### 8.3 Tier 3 (Future): Spine, Lottie, VRM
-
-- **Spine 2D**: `.skel` — premium rigging, paid editor, target indie game artists
-- **Lottie**: `.json` — After Effects export, great for UI animations but limited for character
-- **VRM**: 3D model rendered flat — bridge to VTuber ecosystem
-
-### 8.4 Hybrid Characters
-
-**Important**: A single character package can **mix renderers per state**!
-
-```json
-"states": {
-  "idle": { "renderer": "live2d", "motion": "idle.motion3.json" },
-  "warning": { "renderer": "sprite", "path": "assets/states/warning" }
-}
+```
+┌───────────────────────────────────────────────────────────┐
+│  Application Shell (Tauri 2, macOS)                        │
+│  ├── Transparent always-on-top window (React + PixiJS)     │
+│  ├── System tray (native Rust)                             │
+│  └── Settings IPC                                          │
+├───────────────────────────────────────────────────────────┤
+│  Character Manager (TS)                                    │
+│  ├── Package loader (.shikigami zip + manifest validate)   │
+│  ├── Sprite renderer (PixiJS v8)                          │
+│  └── Speech bubble overlay                                 │
+├───────────────────────────────────────────────────────────┤
+│  Emotion State Machine (Rust)                              │
+│  ├── Event → state mapper                                  │
+│  ├── Severity scaling                                      │
+│  ├── Dampening (2s window)                                 │
+│  └── Text-parse fallback (opt-in)                          │
+├───────────────────────────────────────────────────────────┤
+│  Event Transport (Rust / tokio + axum)                     │
+│  ├── HTTP POST /v1/events on 127.0.0.1                     │
+│  ├── Bearer token auth                                     │
+│  └── Port conflict recovery                                │
+└───────────────────────────────────────────────────────────┘
+                        ▲
+                        │ HTTP POST
+                        │
+       ┌────────────────┴────────────────┐
+       │ Claude Code Hooks               │
+       │ (PreToolUse / PostToolUse /     │
+       │  Stop / UserPromptSubmit)       │
+       └─────────────────────────────────┘
 ```
 
-Use case: Live2D for idle breathing (smooth), sprite frames for expressive warning animation.
+See ADRs for rationale on each layer:
+- **ADR-000** — Licensing & protocol
+- **ADR-001** — HTTP transport with auth
+- **ADR-002** — Event-driven signal source
+- **ADR-003** — Character package format
+- **ADR-004** — v1 scope (sprite-only, Mac-first)
 
-### 8.5 Animation Performance Budget
+---
 
-Per-frame targets for always-on overlay:
-- **GPU**: <2ms per frame (60fps budget)
-- **CPU**: <5% of one core at idle
-- **Memory**: <50MB per character loaded
-- **Disk**: <30MB per `.shikigami` package (compressed)
+## 8. Canonical Emotion States & Textures
 
-Enforced via `shikigami validate <package>` CLI.
+> **Architecture**: Hierarchical Fusion — see ADR-002. Events determine the **dominant state** (Stage 1); text-parse within the event's `text` field optionally adds a **texture modifier** (Stage 2). Final animation key = `<dominant>[_<texture>]`.
+
+### 8.1 Dominant States (canonical, 9)
+
+| State | Event Triggers | Duration |
+|-------|---------------|----------|
+| `idle` | default, `session_idle_short` | loop |
+| `happy` | `tool_complete` + exitCode 0 (brief), `git_commit`, `git_push` | ~1.5s → idle |
+| `focused` | `tool_start`, `user_prompt` | until completion |
+| `warning` | `tool_complete` non-zero exit, `error`, `destructive_op_detected` | severity-scaled |
+| `confused` | repeated errors, unclear state | ~2s |
+| `sleepy` | `session_idle_long` (5+ min) | loop until wake |
+| `shy` | event-triggered contexts (e.g. affirmative user response on themed styles) | brief |
+| `flirty` | opt-in styles only | brief |
+| `overloaded` | consecutive errors within 10s | ~3s |
+
+### 8.2 Texture Modifiers (v0.1 canonical set, 6)
+
+Textures are composed onto a dominant state via lightweight regex on the event's `text` field. Texture layer is **skipped** when severity is `critical`.
+
+| Texture | Trigger Patterns | Effect |
+|---------|-----------------|--------|
+| `relieved` | "finally", "phew", `(´｡• ᵕ •｡`)` | slow sigh before main animation |
+| `playful` | `(｡•̀ᴗ-)✧`, "heh", "~" markers | lighter weight + wink |
+| `exhausted` | "again", "still failing", "ugh" | slumped posture |
+| `alarmed` | `⚠️`, "dangerous", "careful" | raised hand + wide eyes |
+| `cute` | `*action text*` patterns, `♡` | posing flair |
+| `smug` | "told you", `( ˶ˆᗜˆ˵ )` | chin-up smirk |
+
+Characters MAY declare textures per state in their manifest. Unknown or unsupported textures fall back gracefully to the dominant state with no error.
+
+### 8.3 Composition Examples
+
+| Dominant | Texture | Final |
+|----------|---------|-------|
+| `happy` | `relieved` | `happy_relieved` |
+| `focused` | `alarmed` | `focused_alarmed` |
+| `warning` | *(ignored, critical)* | `warning` |
+| `sleepy` | `cute` | `sleepy_cute` |
+| `idle` | — | `idle` |
+
+Characters MAY add custom dominant states. Unknown dominants fall back to nearest canonical via manifest hint.
 
 ---
 
@@ -414,84 +307,91 @@ Enforced via `shikigami validate <package>` CLI.
 
 ### Phase 0 — Foundation (Week 1)
 
-- [x] Repo setup, README, .gitignore ✓
-- [ ] Tauri 2 scaffold with React + TS
-- [ ] Transparent always-on-top window POC
-- [ ] ADR-001: Tauri vs Electron decision doc
-- [ ] ADR-002: Character Package format decision
+- [x] Repo + README + .gitignore + PRD v0.1 ✓
+- [x] PRD v0.2 + 5 ADRs ✓ (this document)
+- [ ] Tauri 2 + React + TS scaffold
+- [ ] Transparent always-on-top window POC on macOS
+- [ ] CI: lint + typecheck + test on macOS
 
-### Phase 1 — Core Engine (Week 2)
+### Phase 1 — Event Transport & State Machine (Week 2)
 
-- [ ] Emotion Parser (Rust) with kaomoji regex table
-- [ ] Emotion State Machine with transitions
-- [ ] WebSocket server on `localhost:7796`
-- [ ] Claude Code hook bridge script (`hooks/shikigami-hook.sh`)
-- [ ] Unit tests: emotion parser ≥90% coverage
+- [ ] HTTP POST server on `127.0.0.1:7796` with bearer token
+- [ ] Port conflict recovery
+- [ ] Event payload schema v1 + validation
+- [ ] Event → state machine with severity scaling + dampening
+- [ ] Text-parse fallback (opt-in)
+- [ ] Claude Code hook bridge (`shikigami install-hook` + `doctor`)
+- [ ] Unit tests ≥90% for state machine
 
-### Phase 2 — Renderer System (Week 3)
+### Phase 2 — Character Renderer (Week 3)
 
-- [ ] `CharacterRenderer` interface
-- [ ] `SpriteSheetRenderer` via PixiJS
-- [ ] Manifest schema v1.0 + JSON Schema validator
-- [ ] Character loader + hot reload
-- [ ] First character: "Linh" (3 states: idle/happy/shy)
+- [ ] `CharacterRenderer` interface + `SpriteSheetRenderer`
+- [ ] `.shikigami` package loader + JSON Schema validator
+- [ ] Atlas auto-generation at install time
+- [ ] Hot reload
+- [ ] First character "Linh" — 4 states: idle / happy / focused / warning
+- [ ] Character library browser (grid view)
+- [ ] Character hot-swap
 
-### Phase 3 — UX & Polish (Week 4)
+### Phase 3 — UX Polish (Week 4)
 
 - [ ] System tray menu
-- [ ] Settings window (size/opacity/position)
-- [ ] Character library browser
-- [ ] Drag-and-drop `.shikigami` install
-- [ ] macOS `.dmg` signed release
+- [ ] Settings window (size / opacity / position / click-through / auto-start)
+- [ ] Speech bubble component with context-aware content (FR-055)
+- [ ] Idle variety (FR-057)
+- [ ] Fullscreen / screen-record detection (FR-052)
+- [ ] Offscreen recovery (FR-053)
+- [ ] macOS `.dmg` release via GitHub Actions
+- [ ] Docs site (contributor guide, template repo)
 
-### Phase 4 — Live2D + Cross-Platform (Week 5-6)
+### Phase 4 — v0.2 Windows Port (T+4 weeks)
 
-- [ ] `Live2DRenderer` integration
-- [ ] Windows `.msi` build + CI
-- [ ] Linux AppImage build + CI
-- [ ] GitHub Actions release pipeline
+- [ ] Tauri Windows build
+- [ ] Transparent overlay WGL quirks
+- [ ] `.msi` installer via NSIS
+- [ ] PowerShell hook script
 
-### Phase 5 — Community Launch (Week 7-8)
+### Phase 5 — v0.3 Linux + Optional Live2D Add-on (T+6 weeks)
 
-- [ ] Public registry prototype (static GitHub-hosted)
-- [ ] `shikigami` CLI (`install`, `pack`, `validate`)
-- [ ] Character template repo
-- [ ] Landing page + demo video
-- [ ] Submit to Hacker News / r/ChatGPTCoding / Twitter dev community
+- [ ] Tauri Linux build (WebKitGTK)
+- [ ] AppImage + `.deb` + `.rpm`
+- [ ] `shikigami-live2d` optional add-on in separate repo (ADR-000)
 
-### Future (Post-v1) — Multi-AI Integration
+### Phase 6+ — v0.4+ Adapters & Beyond
 
 - [ ] Cursor adapter
 - [ ] Windsurf adapter
-- [ ] Generic HTTP/webhook adapter with auth
-- [ ] TTS integration (premium?)
-- [ ] Cloud sync (premium tier)
+- [ ] VMC protocol export (FR-F10)
+- [ ] TTS exploration
 
 ---
 
-## 10. Risks & Mitigations
+## 10. Risks & Mitigations (Updated)
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| Live2D SDK licensing ambiguity for OSS | Medium | High | Start sprite-only; Live2D opt-in add-on with clear licensing docs |
-| Tauri WebView inconsistencies across OS | Medium | Medium | Test WebGL matrix early; fallback to Canvas2D when needed |
-| Low community character contribution | Medium | High | Invest in template repo + tutorial video + `shikigami pack` CLI ergonomics |
-| Emotion parser accuracy on non-English text | High | Medium | Multi-language regex tables + future ML classifier option |
-| Performance regression at scale (multi-character) | Low | Medium | Single-character-on-screen rule for v1; performance budget enforced in CI |
-| Claude Code hook format changes | Low | High | Adapter pattern isolates parsing; version-detect hook version |
-| Character pack supply chain risk (malicious package) | Medium | High | Manifest-only, no arbitrary code execution; sandbox third-party renderers |
-| Burnout / scope creep | High | High | Strict non-goals list; "done is better than perfect"; community help |
-| Rendering CPU/GPU hog on older machines | Medium | Medium | Enforce performance budget; adaptive framerate downshift |
+| Event-source fidelity varies across AI tools | High | High | v0.1 is Claude Code only; adapter pattern isolates parsing when we add more |
+| Transparent overlay breaks on macOS updates | Medium | High | Nightly CI smoke tests, maintain min supported macOS version |
+| Low community character contribution | Medium | High | Template repo + `shikigami pack` CLI + short tutorial video + 1 flagship character to inspire |
+| Performance budget missed with sprite + Tauri | Medium | Medium | Atlas packing, WebP frames, strict budget CI gate (fail build if bundle/RAM regressions) |
+| Context-blind reactions (smiling at disaster) | Low post-ADR-002 | Critical | Severity-aware state machine (ADR-002) + test corpus with destructive ops |
+| Toxic loop strobe on error spam | Low post-FR-009 | Medium | Event dampening window |
+| Port / firewall / antivirus blocks listener | Medium | Medium | Conflict recovery + clear diagnostic (FR-050) |
+| User distraction ("Clippy 2.0") | Medium | High | Pause reactions toggle, idle variety only when in foreground, speech bubbles deliver utility |
+| UX fatigue after 48h novelty | Medium | High | Speech bubble *utility* content — error summaries + commit SHAs > cute-only |
+| Claude Code hook format breaking change | Low | High | Version-detect hook schema + graceful fallback |
+| Artist onboarding too heavy | Medium | Medium | Minimum viable character = 2 states (`idle`, `happy`); missing states fall back gracefully |
+| Scope creep back toward v0.1 ambition | High | High | Strict non-goals list; this PRD is the source of truth |
 
 ---
 
 ## 11. Open Questions
 
-- [ ] Default listen port — `7796` or let user configure? → **Decision: 7796 default, configurable**
-- [ ] Character package signing/verification? → **v1: no signing; v2: optional signing via public keys**
-- [ ] Do we ship with any characters or empty? → **Ship 1 default (Linh, sprite-based)**
-- [ ] License choice: MIT vs Apache 2.0 vs GPL? → **Lean MIT for max adoption; characters CC-BY-SA**
-- [ ] Name collision risk with existing "shikigami" projects? → **Check npm, pip, cargo, GitHub before v0.1**
+- [ ] Notarization / code signing for macOS `.dmg` — Apple Developer account needed; defer to post-v0.1 if cost is a barrier
+- [ ] Default bearer token rotation strategy — v0.1 = install-time static; v0.2 = consider refresh on demand
+- [ ] Speech bubble max character count — UX test with real error messages
+- [ ] Is `shikigami-live2d` add-on worth the maintenance cost? Validate demand first in v0.2 window
+- [ ] Character name collision in registry (v1.0) — namespace by author? ID validation rules?
 
 ---
 
@@ -499,24 +399,29 @@ Enforced via `shikigami validate <package>` CLI.
 
 ### 12.1 Glossary
 
-- **Emotion State** — canonical token representing character mood (e.g., `happy`, `shy`)
-- **Renderer** — plugin that draws a character given a state (Sprite, Live2D, ...)
-- **Character Package** — `.shikigami` bundle (zip) containing manifest + assets
-- **Manifest** — `manifest.json` describing character metadata + state → asset mapping
-- **Hook Bridge** — script that subscribes to Claude Code events and POSTs to WS server
+- **Event** — structured JSON payload from host AI tool (tool_start, tool_complete, error, etc.)
+- **Canonical State** — one of 9 built-in emotion states every character fallback-maps to
+- **Severity** — `info | warning | error | critical` tag on events that scales state duration/intensity
+- **Speech Bubble** — small overlay near character with useful contextual info (error, SHA, warnings)
+- **Character Package** — `.shikigami` zip bundle with manifest + sprite assets
+- **Renderer** — code that draws a character given a state; v0.1 has only `SpriteSheetRenderer`
 
 ### 12.2 References
 
 - Tauri 2: https://v2.tauri.app/
-- Live2D Cubism SDK: https://www.live2d.com/en/sdk/
 - PixiJS: https://pixijs.com/
-- VSCode Extension format (inspiration): https://code.visualstudio.com/api/working-with-extensions/publishing-extension
+- JSON Schema: https://json-schema.org/
+- VSCode Extension format (manifest inspiration): https://code.visualstudio.com/api/working-with-extensions/publishing-extension
+- VMC Protocol: https://protocol.vmc.info/ *(future FR-F10)*
+- Claude Code Hooks: https://docs.claude.com/claude-code/hooks
+
+### 12.3 Review History
+
+- **v0.1** → **v0.2**: post-adversarial-review by Codex + Gemini; 18 accepted challenges applied, 3 reframed. See `docs/reviews/PRD-v0.1-adversarial-review.md`.
+- **v0.2 signal-source refinement** (same day): 4-way Steelman Tournament debate (Opus, Sonnet, Gemini, Codex proxy) → ADR-002 revised from "Event-Driven Primary" to **"Hierarchical Fusion — Event-Gated, Text-Textured"**. FR-058 / FR-059 added. FR-F11 (LLM sidecar) added to backlog. See `docs/debates/2026-04-22-signal-source/`.
+- Adversarial review: pending for v0.3 (re-run before v1.0 release tag).
+- PRD Score (self, v0.2): **93/100** — strong on event-grounded reactions with emotional nuance via texture layer, honest scope, explicit trade-offs; weak on monetization detail (deferred intentionally) and Windows/Linux depth (deferred to v0.2/0.3).
 
 ---
 
-**Adversarial review**: pending (Phase 2.5 skipped for draft; will run before v1.0 release)
-**PRD Score (self)**: 88/100 — strong on extensibility & clarity; weak on monetization + multi-AI adapter detail
-
----
-
-*"She watches. She listens. She reflects. Summoned by code, animated by soul."*
+*"She watches what your agent actually does. She reacts with truth. Summoned by code, grounded in events."*
