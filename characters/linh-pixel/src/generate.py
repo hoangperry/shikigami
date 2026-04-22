@@ -108,12 +108,12 @@ def body_base() -> list[str]:
         ".....ONNnnnnnnnnnnNNO.......",  # 29
         "......ONnnnnnnnnnnNO........",  # 30 skirt hem
         ".......ONnnnnnnnnNO.........",  # 31
-        "........OSSSSSSSSSO.........",  # 32 upper legs
-        "........OSSSSSSSSSO.........",  # 33
-        ".........OSSSSSSSO..........",  # 34 mid legs
-        ".........OSSSSSSSO..........",  # 35
-        "........OSSSS.SSSSO.........",  # 36 lower legs (gap)
-        "........OSSSS.SSSSO.........",  # 37
+        "........ONNNNNNNNNO.........",  # 32 tights upper legs
+        "........ONNNNNNNNNO.........",  # 33
+        ".........ONNNNNNNO..........",  # 34 mid legs (tights)
+        ".........ONNNNNNNO..........",  # 35
+        "........ONNNN.NNNNO.........",  # 36 lower legs (tights gap)
+        "........ONNNN.NNNNO.........",  # 37
         ".......OKKKKK.KKKKKO........",  # 38 shoe tops
         ".......KKKKKK.KKKKKK........",  # 39 shoes
         "......KKKKKKK.KKKKKKK.......",  # 40 shoe widest
@@ -141,12 +141,12 @@ def body_warning() -> list[str]:
         ".....ONNnnnnnnnnnnNNO.......",  # 29
         "......ONnnnnnnnnnnNO........",  # 30
         ".......ONnnnnnnnnNO.........",  # 31
-        "........OSSSSSSSSSO.........",  # 32
-        "........OSSSSSSSSSO.........",  # 33
+        "........ONNNNNNNNNO.........",  # 32 tights
+        "........ONNNNNNNNNO.........",  # 33
         ".........OSSSSSSSO..........",  # 34
-        ".........OSSSSSSSO..........",  # 35
+        ".........ONNNNNNNO..........",  # 35
         "........OSSSS.SSSSO.........",  # 36
-        "........OSSSS.SSSSO.........",  # 37
+        "........ONNNN.NNNNO.........",  # 37
         ".......OKKKKK.KKKKKO........",  # 38
         ".......KKKKKK.KKKKKK........",  # 39
         "......KKKKKKK.KKKKKKK.......",  # 40
@@ -174,12 +174,12 @@ def body_focused() -> list[str]:
         ".....ONNnnnnnnnnnnNNO.......",  # 29
         "......ONnnnnnnnnnnNO........",  # 30
         ".......ONnnnnnnnnNO.........",  # 31
-        "........OSSSSSSSSSO.........",  # 32
-        "........OSSSSSSSSSO.........",  # 33
+        "........ONNNNNNNNNO.........",  # 32 tights
+        "........ONNNNNNNNNO.........",  # 33
         ".........OSSSSSSSO..........",  # 34
-        ".........OSSSSSSSO..........",  # 35
+        ".........ONNNNNNNO..........",  # 35
         "........OSSSS.SSSSO.........",  # 36
-        "........OSSSS.SSSSO.........",  # 37
+        "........ONNNN.NNNNO.........",  # 37
         ".......OKKKKK.KKKKKO........",  # 38
         ".......KKKKKK.KKKKKK........",  # 39
         "......KKKKKKK.KKKKKKK.......",  # 40
@@ -208,9 +208,9 @@ def head_idle_a() -> list[str]:
     return _hair_top() + [
         "........OHhSSSSSSSSShhHHO...",  # 5 upper face
         "........OhSSSSSSSSSSShhHO...",  # 6
-        "........OhSSGGGSSSGGGShHO...",  # 7 glasses top
-        "........OhSGEEEGSGEEEGSHO...",  # 8 eyes
-        "........OhSGGGGGGGGGGGSHO...",  # 9 glasses bridge (one line)
+        "........OhSSSSSSSSSSSSShHO..",  # 7 upper face (clean)
+        "........OhSSEGSSSSSGESSShHO.",  # 8 small pupils with tiny frame dots
+        "........OhSSSSSSSSSSSSShHO..",  # 9 lower face (clean)
         "........OhSSSSSSSSSSSShHO...",  # 10
         ".........OSSPPSSSSPPSSSO....",  # 11 blush
         "..........OSSSSMMSSSSSO.....",  # 12 mouth (small neutral)
@@ -226,7 +226,7 @@ def head_idle_b() -> list[str]:
         "........OhSSSSSSSSSSShhHO...",
         "........OhSSGGGSSSGGGShHO...",
         "........OhSGGGGGGGGGGGGHO...",  # blink — eyes become thin line
-        "........OhSGGGGGGGGGGGSHO...",
+        "........OhSSSSSSSSSSSSShHO..",
         "........OhSSSSSSSSSSSShHO...",
         ".........OSSPPSSSSPPSSSO....",
         "..........OSSSSMMSSSSSO.....",
@@ -241,8 +241,8 @@ def head_happy_a() -> list[str]:
         "........OHhSSSSSSSSShhHHO...",
         "........OhSSSSSSSSSSShhHO...",
         "........OhSSSSSSSSSSSShHO...",
-        "........OhSHhhhSSShhhHShHO..",  # crescent closed eyes (happy)
-        "........OhSGGGGGGGGGGGSHO...",  # glasses
+        "........OhSShhSSSSSShhSShHO.",  # 8 crescent smile eyes
+        "........OhSSSSSSSSSSSSShHO..",  # glasses
         "........OhSSPPSSSSPPSSShHO..",
         ".........OSSMMMMMMMMMSSO....",  # smile mouth (wide)
         "..........OSSSSSSSSSSSO.....",
@@ -258,7 +258,7 @@ def head_happy_b() -> list[str]:
         "........OhSSSSSSSSSSShhHO...",
         "........OhSSGGGSSSGGGShHO...",
         "........OhSGEEhGSGhEEGSHO...",  # eyes half-closing
-        "........OhSGGGGGGGGGGGSHO...",
+        "........OhSSSSSSSSSSSSShHO..",
         "........OhSSPPSSSSPPSSShHO..",
         ".........OSSSMMMMMMMSSSO....",
         "..........OSSSSSSSSSSSO.....",
@@ -273,8 +273,8 @@ def head_focused_a() -> list[str]:
         "........OHhSSSSSSSSShhHHO...",
         "........OhSSOOSSSSSOOSShHO..",  # knit brows
         "........OhSSGGGSSSGGGShHO...",
-        "........OhSGEEEGSGSSSSGHO...",  # eyes look left-down
-        "........OhSGGGGGGGGGGGSHO...",
+        "........OhSSEsSSSSSSEsSShHO.",  # eyes look left-down
+        "........OhSSSSSSSSSSSSShHO..",
         "........OhSSSSSSSSSSSShHO...",
         ".........OSSSSMMSSSSSSO.....",  # thoughtful mouth
         "..........OSSSSSSSSSSO......",
@@ -289,8 +289,8 @@ def head_focused_b() -> list[str]:
         "........OHhSSSSSSSSShhHHO...",
         "........OhSSOOSSSSSOOSShHO..",
         "........OhSSGGGSSSGGGShHO...",
-        "........OhSGSSSSGSGEEEGSHO..",  # eyes look right-down
-        "........OhSGGGGGGGGGGGSHO...",
+        "........OhSSsESSSSSSsESShHO.",  # eyes look right-down
+        "........OhSSSSSSSSSSSSShHO..",
         "........OhSSSSSSSSSSSShHO...",
         ".........OSSSSMMSSSSSSO.....",
         "..........OSSSSSSSSSSO......",
@@ -305,8 +305,8 @@ def head_warning_a() -> list[str]:
         "........OHhSSSSSSSSShhHHO...",
         "........OhSOOOSSSSSOOOhHO...",  # concerned brows
         "........OhSGGGSSSGGGShHO....",
-        "........OhSGEEEGSGEEEGSHO...",  # eyes wide
-        "........OhSGGGGGGGGGGGSHO...",
+        "........OhSSEESSSSSSEESShHO.",  # wide alarmed eyes
+        "........OhSSSSSSSSSSSSShHO..",
         "........OhSSSSSSSSSSSShHO...",  # no blush in alarm
         ".........OSSSMMMMMSSSSO....P",  # open worried mouth + sweat drop P
         "..........OSSSSSSSSSSO.....P",
@@ -321,8 +321,8 @@ def head_warning_b() -> list[str]:
         "........OHhSSSSSSSSShhHHO...",
         "........OhSOOOSSSSSOOOhHO...",
         "........OhSGGGSSSGGGShHO....",
-        "........OhSGEEEGSGEEEGSHO...",
-        "........OhSGGGGGGGGGGGSHO...",
+        "........OhSSEESSSSSSEESShHO.",
+        "........OhSSSSSSSSSSSSShHO..",
         "........OhSSSSSSSSSSSShHO...",
         ".........OSSSSMMMSSSSSSO....",
         "..........OSSSSSSSSSSO.....P",  # sweat drop pulsing
@@ -337,8 +337,8 @@ def head_sleepy_a() -> list[str]:
         "........OHhSSSSSSSSShhHHO...",
         "........OhSSSSSSSSSSShhHO...",
         "........OhSSGGGSSSGGGShHO...",
-        "........OhSGhhhGSGhhhGSHO...",  # heavy half-closed eyes
-        "........OhSGGGGGGGGGGGSHO...",
+        "........OhSShhSSSSSShhSShHO.",  # 8 drowsy half-closed eyes
+        "........OhSSSSSSSSSSSSShHO..",
         "........OhSSPPSSSSPPSSShHO..",
         ".........OSSSSSSSSSSSSSO....",  # relaxed mouth
         "..........OSSSSSSSSSSSO.....",
@@ -358,7 +358,7 @@ def head_sleepy_b() -> list[str]:
         "........OHhhSSSSSSSShhHO....",  # 5 forehead visible
         "........OHhSSSSSSSSShhHHO...",  # 6
         "........OhSSSSSSSSSSShhHO...",  # 7
-        "........OhSGGGGGGGGGGGSHO...",  # 8 eyes fully closed (just frame)
+        "........OhSShhSSSSSShhSShHO.",  # 8 eyes fully closed (sleepy)
         "........OhSSSSSSSSSSSShHO...",  # 9
         "........OhSSSSSSSSSSSShHO...",  # 10
         ".........OSSSSSSSSSSSSO.....",  # 11
@@ -373,8 +373,8 @@ def head_happy_relieved_a() -> list[str]:
     return _hair_top() + [
         "........OHhSSSSSSSSShhHHO...",
         "........OhSSSSSSSSSSShhHO...",
-        "........OhSShhhSSShhhShHO...",  # soft closed eye curves
-        "........OhSGGGGGGGGGGGSHO...",  # glasses
+        "........OhSShhSSSSSShhSShHO.",  # 8 soft closed eye curves
+        "........OhSSSSSSSSSSSSShHO..",  # glasses
         "........OhSSSSSSSSSSSShHO...",
         "........OhSSPPSSSSPPSSShHO..",
         ".........OSSSSMMMSSSSSSO....",  # soft smile
