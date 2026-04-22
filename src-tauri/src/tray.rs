@@ -79,15 +79,18 @@ pub fn install<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 
 fn toggle_main_window_visibility<R: Runtime>(app: &AppHandle<R>) {
     if let Some(w) = app.get_webview_window("main") {
-        match w.is_visible() {
-            Ok(true) => {
-                let _ = w.hide();
-            }
-            Ok(false) => {
-                let _ = w.show();
-                let _ = w.set_focus();
-            }
-            Err(e) => tracing::warn!("tray: visibility check failed: {e}"),
+        // "Show" is cheap and idempotent; we always ensure the window is
+        // on-screen + focused so a lost or off-screen window can be
+        // recovered by clicking the tray menu. Toggle hide only when the
+        // user explicitly wants to dismiss while it is in front.
+        let was_focused = w.is_focused().unwrap_or(false);
+        if was_focused && w.is_visible().unwrap_or(false) {
+            let _ = w.hide();
+        } else {
+            let _ = w.show();
+            let _ = w.unminimize();
+            let _ = w.center();
+            let _ = w.set_focus();
         }
     }
 }

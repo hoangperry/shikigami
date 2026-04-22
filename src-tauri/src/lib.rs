@@ -52,6 +52,24 @@ pub fn run() {
             if let Err(e) = tray::install(app.handle()) {
                 tracing::warn!("failed to install tray: {e}");
             }
+            // Ensure the main window is on-screen and visible. On macOS with
+            // transparent + decorations:false the window occasionally opens
+            // at 0,0 off-screen or with an opaque default size that the
+            // compositor rejects. Center + show + focus is idempotent.
+            use tauri::Manager;
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.set_size(tauri::Size::Logical(tauri::LogicalSize {
+                    width: 480.0,
+                    height: 640.0,
+                }));
+                let _ = w.center();
+                let _ = w.show();
+                let _ = w.set_focus();
+                let _ = w.set_always_on_top(true);
+                tracing::info!("main window forced: centered + shown + focused");
+            } else {
+                tracing::warn!("main window missing at setup() — did tauri.conf windows[0] fail?");
+            }
             start_event_pipeline(app.handle().clone());
             Ok(())
         })
