@@ -19,7 +19,8 @@
       "identifier": "fs:allow-read-file",
       "allow": [
         { "path": "$HOME/.shikigami/characters/**" },
-        { "path": "$RESOURCE/characters/**" }
+        { "path": "$RESOURCE/characters/**" },
+        { "path": "**/characters/**" }
       ]
     }
   ]

@@ -33,13 +33,13 @@
     ],
     "macOSPrivateApi": true,
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob: asset: https://asset.localhost; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' asset: https://asset.localhost;",
+      "csp": "default-src 'self'; img-src 'self' data: blob: asset: https://asset.localhost; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval' https://cubism.live2d.com; connect-src 'self' asset: https://asset.localhost https://cubism.live2d.com;",
       "assetProtocol": {
         "enable": true,
         "scope": [
           "$HOME/.shikigami/characters/**",
           "$RESOURCE/characters/**",
-          "**/characters/linh-pixel/**"
+          "**/characters/**"
         ]
       }
     }
