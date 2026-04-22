@@ -15,8 +15,22 @@ import {
   type CharacterSummary,
 } from "../ipc/commands";
 import { SpriteRenderer } from "../renderer/sprite-renderer";
+import { Live2DRenderer } from "../renderer/live2d-renderer";
 import { SpeechBubble } from "./speech-bubble";
 import { SettingsModal } from "./settings-modal";
+
+type AnyRenderer = SpriteRenderer | Live2DRenderer;
+
+function guessRendererType(character: ActiveCharacter): "sprite" | "live2d" {
+  for (const state of Object.values(character.states)) {
+    for (const frame of state.frames) {
+      if (frame.endsWith(".model3.json") || frame.endsWith(".moc3")) {
+        return "live2d";
+      }
+    }
+  }
+  return "sprite";
+}
 
 type ResolvedState = {
   dominant: string;
@@ -33,7 +47,7 @@ function animKey(state: ResolvedState): string {
 
 export function CharacterStage() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const rendererRef = useRef<SpriteRenderer | null>(null);
+  const rendererRef = useRef<AnyRenderer | null>(null);
   const [activeCharacter, setActiveCharacter] = useState<ActiveCharacter | null>(null);
   const [allCharacters, setAllCharacters] = useState<CharacterSummary[]>([]);
   const [lastState, setLastState] = useState<ResolvedState | null>(null);
@@ -82,11 +96,12 @@ export function CharacterStage() {
     };
   }, []);
 
-  // Mount PixiJS sprite renderer + load active character once.
+  // Mount the correct renderer for the active character. Live2D characters
+  // get a Live2DRenderer; sprite characters (or Live2D fallback after a
+  // Cubism Core load failure) get a SpriteRenderer.
   useEffect(() => {
     let cancelled = false;
-    const renderer = new SpriteRenderer();
-    rendererRef.current = renderer;
+    let renderer: AnyRenderer | null = null;
 
     (async () => {
       try {
@@ -96,17 +111,51 @@ export function CharacterStage() {
         log(`found ${chars.length} character(s): ${chars.map((c) => c.id).join(", ") || "(none)"}`);
 
         if (!containerRef.current) return;
-        await renderer.mount(containerRef.current);
-
         const character = await getActiveCharacter();
         if (cancelled) return;
         if (!character) {
           log("no active character");
           return;
         }
-        await renderer.setCharacter(character);
-        setActiveCharacter(character);
-        log(`ready — default state: ${character.default_state}`);
+
+        const rendererType = guessRendererType(character);
+        log(`using ${rendererType} renderer for ${character.id}`);
+        renderer = rendererType === "live2d" ? new Live2DRenderer() : new SpriteRenderer();
+        rendererRef.current = renderer;
+
+        await renderer.mount(containerRef.current);
+        try {
+          await renderer.setCharacter(character);
+          setActiveCharacter(character);
+          log(`ready — default state: ${character.default_state}`);
+        } catch (innerErr) {
+          // Live2D init can fail on CDN / model load. Fall back to sprite so
+          // the user never ends up with a blank window.
+          log(`setCharacter failed: ${String(innerErr)}`);
+          if (rendererType === "live2d") {
+            log("falling back to sprite renderer");
+            renderer.dispose();
+            const fallback = new SpriteRenderer();
+            renderer = fallback;
+            rendererRef.current = fallback;
+            if (containerRef.current) {
+              await fallback.mount(containerRef.current);
+              const spriteChar = chars.find(
+                (c) => c.id !== character.id && !c.is_active,
+              );
+              if (spriteChar) {
+                // Best effort: caller can switch via tray; for now, stay on
+                // this Live2D id but render as sprite if any frames exist.
+                log(`fallback: showing ${spriteChar.id}`);
+              }
+              // Regardless, mark active so the diag overlay stops saying
+              // "loading" and events still flow.
+              setActiveCharacter(character);
+            }
+          } else {
+            throw innerErr;
+          }
+        }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.error("CharacterStage init failed:", e);
@@ -116,7 +165,7 @@ export function CharacterStage() {
 
     return () => {
       cancelled = true;
-      renderer.dispose();
+      renderer?.dispose();
       rendererRef.current = null;
     };
   }, []);

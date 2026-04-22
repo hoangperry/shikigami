@@ -17,6 +17,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css,html,json}\" \"*.{ts,json,md}\""
   },
   "dependencies": {
+    "@naari3/pixi-live2d-display": "^1.2.5",
     "@tauri-apps/api": "^2.1.1",
     "@tauri-apps/plugin-fs": "^2.2.0",
     "pixi.js": "^8.5.2",

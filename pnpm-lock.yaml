@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@naari3/pixi-live2d-display':
+        specifier: ^1.2.5
+        version: 1.2.5(pixi.js@8.18.1)
       '@tauri-apps/api':
         specifier: ^2.1.1
         version: 2.10.1
@@ -372,6 +375,11 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@naari3/pixi-live2d-display@1.2.5':
+    resolution: {integrity: sha512-pRHT74NtUmWCGwE+zabEe5zAeZ2MTYtgsRnQwDg5ompj351+zLvwNc9GnVSrcHKHM3OSExV971R2A3S5IdFN3Q==}
+    peerDependencies:
+      pixi.js: ^8.0.0
 
   '@pixi/colord@2.9.6':
     resolution: {integrity: sha512-nezytU2pw587fQstUu1AsJZDVEynjskwOL+kibwcdxsMBFqPsFFNA7xl0ii/gXuDi6M0xj3mfRJj8pBSc2jCfA==}
@@ -1417,6 +1425,10 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@naari3/pixi-live2d-display@1.2.5(pixi.js@8.18.1)':
+    dependencies:
+      pixi.js: 8.18.1
 
   '@pixi/colord@2.9.6': {}
 
