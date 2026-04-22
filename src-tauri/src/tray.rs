@@ -99,9 +99,25 @@ fn reset_main_window_position<R: Runtime>(app: &AppHandle<R>) {
     let Some(w) = app.get_webview_window("main") else {
         return;
     };
-    // Center on whichever monitor currently holds the cursor (best-effort).
-    if let Err(e) = w.center() {
-        tracing::warn!("tray: center failed: {e}");
+    // Manually center on primary monitor; w.center() is unreliable on macOS
+    // with transparent + multi-display configurations.
+    if let Ok(Some(mon)) = w.primary_monitor() {
+        let monsize = mon.size();
+        let scale = mon.scale_factor();
+        let mon_w = monsize.width as f64 / scale;
+        let mon_h = monsize.height as f64 / scale;
+        if let Ok(outer) = w.outer_size() {
+            let win_w = outer.width as f64 / scale;
+            let win_h = outer.height as f64 / scale;
+            let x = ((mon_w - win_w) / 2.0).max(0.0);
+            let y = ((mon_h - win_h) / 2.0).max(0.0);
+            let _ = w.set_position(tauri::Position::Logical(tauri::LogicalPosition {
+                x,
+                y,
+            }));
+        }
+    } else {
+        let _ = w.center();
     }
     let _ = w.show();
     let _ = w.set_focus();

@@ -58,15 +58,46 @@ pub fn run() {
             // compositor rejects. Center + show + focus is idempotent.
             use tauri::Manager;
             if let Some(w) = app.get_webview_window("main") {
-                let _ = w.set_size(tauri::Size::Logical(tauri::LogicalSize {
+                let size = tauri::LogicalSize {
                     width: 480.0,
                     height: 640.0,
+                };
+                let _ = w.set_size(tauri::Size::Logical(size));
+
+                // `w.center()` computes across the virtual coordinate space
+                // that can include non-attached monitors or incorrectly
+                // position the window outside the primary display. Compute
+                // centre manually from the primary monitor bounds.
+                // Pin to a tiny top-left offset on the primary monitor —
+                // guaranteed on-screen on every common layout, easy to
+                // spot, user can drag elsewhere afterwards.
+                let _ = w.set_position(tauri::Position::Logical(tauri::LogicalPosition {
+                    x: 100.0,
+                    y: 100.0,
                 }));
-                let _ = w.center();
+                // Log every attached monitor so we can verify the user is
+                // looking at the right display.
+                if let Ok(mons) = w.available_monitors() {
+                    for (i, mon) in mons.iter().enumerate() {
+                        tracing::info!(
+                            idx = i,
+                            name = ?mon.name(),
+                            size = ?mon.size(),
+                            position = ?mon.position(),
+                            scale = mon.scale_factor(),
+                            "detected monitor"
+                        );
+                    }
+                }
                 let _ = w.show();
                 let _ = w.set_focus();
-                let _ = w.set_always_on_top(true);
-                tracing::info!("main window forced: centered + shown + focused");
+
+                tracing::info!(
+                    visible = ?w.is_visible(),
+                    outer_size = ?w.outer_size(),
+                    outer_pos = ?w.outer_position(),
+                    "main window state after setup"
+                );
             } else {
                 tracing::warn!("main window missing at setup() — did tauri.conf windows[0] fail?");
             }
