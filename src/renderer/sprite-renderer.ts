@@ -4,7 +4,7 @@
 // sequence on a transparent canvas. Supports crossfade transitions between
 // states.
 
-import { Application, Assets, Graphics, Sprite, Texture } from "pixi.js";
+import { Application, Assets, Sprite, Texture } from "pixi.js";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { ActiveCharacter, StatePayload } from "../ipc/commands";
 
@@ -42,18 +42,6 @@ export class SpriteRenderer {
       autoDensity: true,
     });
     container.appendChild(app.canvas);
-
-    // Diagnostic: draw a faint rounded rectangle so we can confirm the
-    // PixiJS canvas is mounting and the window is genuinely transparent.
-    // Remove once the character reliably renders.
-    const marker = new Graphics();
-    marker
-      .roundRect(0, 0, 140, 32, 8)
-      .fill({ color: 0x1a1a2a, alpha: 0.65 })
-      .stroke({ color: 0xe74c3c, width: 1, alpha: 0.9 });
-    marker.position.set(16, app.canvas.height - 48);
-    app.stage.addChild(marker);
-
     app.ticker.add((ticker) => this.tick(ticker.deltaMS));
     this.app = app;
   }

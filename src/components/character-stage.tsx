@@ -1,9 +1,9 @@
 // Character stage — mounts the PixiJS renderer and keeps it synchronized
 // with the latest ResolvedState received from the Rust backend.
 //
-// Phase 2 includes a visible DIAGNOSTIC PANEL that always shows the loaded
-// character + last event so we can debug white-screen issues without
-// opening DevTools. Remove once the PixiJS canvas is visibly rendering.
+// - Entire window is draggable via `data-tauri-drag-region` on the
+//   character layer (no-drag on the diagnostic panel so it stays clickable).
+// - Diagnostic overlay is HIDDEN by default, toggled with Cmd/Ctrl+I.
 
 import { useEffect, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -30,11 +30,24 @@ export function CharacterStage() {
   const [allCharacters, setAllCharacters] = useState<CharacterSummary[]>([]);
   const [lastState, setLastState] = useState<ResolvedState | null>(null);
   const [diag, setDiag] = useState<string[]>(["boot"]);
+  const [showDiag, setShowDiag] = useState<boolean>(false);
 
   const log = (msg: string) => {
     console.log("[shikigami]", msg);
     setDiag((d) => [...d.slice(-9), msg]);
   };
+
+  // Cmd/Ctrl + I toggles the diagnostic overlay.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "i") {
+        e.preventDefault();
+        setShowDiag((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // Mount PixiJS + load character once.
   useEffect(() => {
@@ -101,7 +114,6 @@ export function CharacterStage() {
           return;
         }
         unlisten = off;
-        log("subscribed to state_changed");
       } catch (e) {
         log(`subscribe failed: ${String(e)}`);
       }
@@ -123,57 +135,72 @@ export function CharacterStage() {
         background: "transparent",
       }}
     >
-      {/* PixiJS canvas mounts here */}
+      {/* Drag layer — covers the whole window so the character is draggable. */}
+      <div
+        data-tauri-drag-region
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 1,
+        }}
+      />
+
+      {/* PixiJS canvas — above the drag layer, but pointer-events:none so
+          drags still reach the drag-region behind it. */}
       <div
         ref={containerRef}
         style={{
           position: "absolute",
           inset: 0,
+          zIndex: 2,
           pointerEvents: "none",
         }}
       />
 
-      {/* Diagnostic overlay — always visible in dev */}
-      <div
-        style={{
-          position: "absolute",
-          top: 8,
-          left: 8,
-          right: 8,
-          padding: "8px 10px",
-          borderRadius: 8,
-          background: "rgba(20,20,30,0.78)",
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
-          color: "#f5f5f5",
-          fontSize: 10,
-          lineHeight: 1.45,
-          fontFamily: "ui-monospace, Menlo, monospace",
-          pointerEvents: "none",
-        }}
-      >
-        <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>
-          Shikigami v0.1.0-alpha.0
+      {/* Diagnostic overlay — hidden by default, toggle with Cmd/Ctrl+I. */}
+      {showDiag && (
+        <div
+          data-tauri-drag-region={false}
+          style={{
+            position: "absolute",
+            top: 8,
+            left: 8,
+            right: 8,
+            padding: "8px 10px",
+            borderRadius: 8,
+            background: "rgba(20,20,30,0.85)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            color: "#f5f5f5",
+            fontSize: 10,
+            lineHeight: 1.45,
+            fontFamily: "ui-monospace, Menlo, monospace",
+            zIndex: 10,
+          }}
+        >
+          <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>
+            Shikigami v0.1.0-alpha.0 · (⌘I to hide)
+          </div>
+          <div>
+            characters: {allCharacters.length} · active:{" "}
+            {activeCharacter?.id ?? "—"}
+          </div>
+          <div>
+            state:{" "}
+            {lastState
+              ? `${animKey(lastState)} [sev=${lastState.severity}] #${lastState.event_id}`
+              : "idle (waiting for events)"}
+          </div>
+          <details style={{ marginTop: 4 }}>
+            <summary style={{ cursor: "pointer", opacity: 0.7 }}>
+              diag log ({diag.length})
+            </summary>
+            <pre style={{ margin: "4px 0 0 0", fontSize: 9, opacity: 0.8, whiteSpace: "pre-wrap" }}>
+              {diag.join("\n")}
+            </pre>
+          </details>
         </div>
-        <div>
-          characters: {allCharacters.length} · active:{" "}
-          {activeCharacter?.id ?? "—"}
-        </div>
-        <div>
-          state:{" "}
-          {lastState
-            ? `${animKey(lastState)} [sev=${lastState.severity}] #${lastState.event_id}`
-            : "idle (waiting for events)"}
-        </div>
-        <details style={{ marginTop: 4 }}>
-          <summary style={{ cursor: "pointer", opacity: 0.7 }}>
-            diag log ({diag.length})
-          </summary>
-          <pre style={{ margin: "4px 0 0 0", fontSize: 9, opacity: 0.8, whiteSpace: "pre-wrap" }}>
-            {diag.join("\n")}
-          </pre>
-        </details>
-      </div>
+      )}
     </div>
   );
 }
