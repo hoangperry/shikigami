@@ -60,12 +60,18 @@ export class Live2DRenderer {
         `Live2D character ${character.id} missing frames for default state`,
       );
     }
-    // Convention: the first frame of defaultState points at .model3.json.
-    const modelUrl = convertFileSrc(defaultState.frames[0]);
+    const rawPath = defaultState.frames[0];
+    const modelUrl = convertFileSrc(rawPath);
+    console.log("[live2d] raw path:", rawPath);
+    console.log("[live2d] asset url:", modelUrl);
 
+    console.log("[live2d] waiting for Cubism Core…");
     await waitForCubismCore(8000);
+    console.log("[live2d] Cubism Core ready:", typeof (globalThis as Record<string, unknown>).Live2DCubismCore);
 
+    console.log("[live2d] fetching model3.json…");
     const model = await Live2DModel.from(modelUrl, { autoInteract: false });
+    console.log("[live2d] model loaded, adding to stage");
     this.app.stage.addChild(model);
 
     // Fit model inside the current canvas.
