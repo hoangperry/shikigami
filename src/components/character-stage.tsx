@@ -15,11 +15,13 @@ import {
   type CharacterSummary,
 } from "../ipc/commands";
 import { SpriteRenderer } from "../renderer/sprite-renderer";
-import { Live2DRenderer } from "../renderer/live2d-renderer";
+// NOTE: Live2DRenderer is imported lazily so a broken Live2D dep can never
+// take down the sprite path — blank-window symptom root-cause-fix.
+import type { Live2DRenderer as Live2DRendererType } from "../renderer/live2d-renderer";
 import { SpeechBubble } from "./speech-bubble";
 import { SettingsModal } from "./settings-modal";
 
-type AnyRenderer = SpriteRenderer | Live2DRenderer;
+type AnyRenderer = SpriteRenderer | Live2DRendererType;
 
 function guessRendererType(character: ActiveCharacter): "sprite" | "live2d" {
   for (const state of Object.values(character.states)) {
@@ -120,7 +122,17 @@ export function CharacterStage() {
 
         const rendererType = guessRendererType(character);
         log(`using ${rendererType} renderer for ${character.id}`);
-        renderer = rendererType === "live2d" ? new Live2DRenderer() : new SpriteRenderer();
+        if (rendererType === "live2d") {
+          try {
+            const mod = await import("../renderer/live2d-renderer");
+            renderer = new mod.Live2DRenderer();
+          } catch (importErr) {
+            log(`live2d import failed: ${String(importErr)} — falling back to sprite`);
+            renderer = new SpriteRenderer();
+          }
+        } else {
+          renderer = new SpriteRenderer();
+        }
         rendererRef.current = renderer;
 
         await renderer.mount(containerRef.current);

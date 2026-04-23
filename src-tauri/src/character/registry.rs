@@ -41,10 +41,20 @@ impl CharacterRegistry {
                 }
             }
         }
-        // Auto-select a default if none was chosen yet.
+        // Auto-select: honor Settings.active_character when it matches a
+        // loaded character; otherwise fall back to the first alphabetical id.
         if self.active.read().unwrap().is_none() {
-            if let Some((first_id, _)) = self.characters.read().unwrap().iter().next() {
-                *self.active.write().unwrap() = Some(first_id.clone());
+            let cfg = crate::config::Settings::load();
+            let guard = self.characters.read().unwrap();
+            let chosen = cfg
+                .active_character
+                .as_deref()
+                .filter(|id| guard.contains_key(*id))
+                .map(String::from)
+                .or_else(|| guard.keys().next().cloned());
+            drop(guard);
+            if let Some(id) = chosen {
+                *self.active.write().unwrap() = Some(id);
             }
         }
         report

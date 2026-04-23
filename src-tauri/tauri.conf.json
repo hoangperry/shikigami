@@ -42,8 +42,9 @@
         "scope": [
           "$HOME/.shikigami/characters/**",
           "$RESOURCE/characters/**",
-          "$HOME/coding/shikigami/characters/**",
-          "$HOME/**/shikigami/characters/**"
+          "/Users/hoangtruong/coding/shikigami/characters/**",
+          "/Users/hoangtruong/coding/shikigami/characters/**/*",
+          "/Users/hoangtruong/coding/shikigami/**"
         ]
       }
     }
