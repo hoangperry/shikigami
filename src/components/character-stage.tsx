@@ -142,8 +142,13 @@ export function CharacterStage() {
           log(`ready — default state: ${character.default_state}`);
         } catch (innerErr) {
           // Live2D init can fail on CDN / model load. Fall back to sprite so
-          // the user never ends up with a blank window.
+          // the user never ends up with a blank window. Auto-open diag so
+          // the user sees the error string without needing ⌘I.
           log(`setCharacter failed: ${String(innerErr)}`);
+          if (innerErr instanceof Error && innerErr.stack) {
+            log(`stack: ${innerErr.stack.split("\n").slice(0, 3).join(" | ")}`);
+          }
+          setShowDiag(true);
           if (rendererType === "live2d") {
             log("falling back to sprite renderer");
             renderer.dispose();
