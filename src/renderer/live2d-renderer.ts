@@ -64,9 +64,15 @@ export class Live2DRenderer {
     }
 
     const rawPath = defaultState.frames[0];
-    const modelUrl = convertFileSrc(rawPath);
+    // In a plain browser (no Tauri), __TAURI_INTERNALS__ is undefined and
+    // convertFileSrc returns a bogus 'asset://' URL the browser cannot
+    // fetch. Fall back to '/hiyori/...' served out of Vite's public/.
+    const isTauri = typeof (globalThis as Record<string, unknown>).__TAURI_INTERNALS__ !== "undefined";
+    const modelUrl = isTauri
+      ? convertFileSrc(rawPath)
+      : `/hiyori/${rawPath.split("/").pop() ?? "frame_00.model3.json"}`;
     console.log("[live2d] raw path:", rawPath);
-    console.log("[live2d] asset url:", modelUrl);
+    console.log("[live2d] asset url:", modelUrl, "(tauri:", isTauri, ")");
 
     console.log("[live2d] waiting for Cubism Core…");
     await waitForCubismCore(8000);
