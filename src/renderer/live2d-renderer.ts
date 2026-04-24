@@ -1,23 +1,22 @@
-// Live2D renderer — pixi.js v8 native via @naari3/pixi-live2d-display.
+// Live2D renderer — pixi.js v8 native via untitled-pixi-live2d-engine.
 //
-// This is the pixi v8 compatible branch of pixi-live2d-display maintained by
-// naari3. Sibling package to SpriteRenderer; same lifecycle contract
-// (mount → setCharacter → transitionTo → dispose) so CharacterStage can
-// swap implementations based on the manifest's frame type.
+// Swapped from @naari3/pixi-live2d-display after the latter silently
+// failed to render despite setting window.PIXI. untitled-pixi-live2d-engine
+// is also pixi v8 native (fork of pixi-live2d-display-mulmotion),
+// maintained by Untitled-Story, supports Cubism 3/4/5.
 //
-// Requires live2dcubismcore.min.js to be loaded globally before instantiating
-// (see index.html — async-loaded from Live2D's CDN). The renderer polls for
-// the global at model-load time and fails fast if it never arrives, which
-// lets CharacterStage fall back to the sprite path.
+// Same mount / setCharacter / transitionTo / dispose contract as
+// SpriteRenderer. Character-stage dispatches based on .model3.json
+// presence in frame paths.
+//
+// Requires live2dcubismcore.min.js from the CDN (see index.html). The
+// renderer polls for the global at model-load time and fails fast if
+// it never arrives — lets CharacterStage fall back to the sprite path.
 
-import { Application, Ticker } from "pixi.js";
-import { Live2DModel } from "@naari3/pixi-live2d-display";
+import { Application } from "pixi.js";
+import { Live2DModel } from "untitled-pixi-live2d-engine/cubism";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { ActiveCharacter } from "../ipc/commands";
-
-// Wire the Live2D display plugin to pixi's Ticker (required by v8 port).
-// Safe to call multiple times.
-Live2DModel.registerTicker(Ticker);
 
 async function waitForCubismCore(timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -44,11 +43,14 @@ export class Live2DRenderer {
       antialias: true,
       resolution: window.devicePixelRatio ?? 1,
       autoDensity: true,
-      // Force WebGL — Cubism Core vertex math is unreliable on WebGPU.
       preference: "webgl",
     });
     container.appendChild(app.canvas);
     this.app = app;
+    console.log("[live2d] Application init OK", {
+      w: app.canvas.width,
+      h: app.canvas.height,
+    });
   }
 
   async setCharacter(character: ActiveCharacter): Promise<void> {
@@ -60,6 +62,7 @@ export class Live2DRenderer {
         `Live2D character ${character.id} missing frames for default state`,
       );
     }
+
     const rawPath = defaultState.frames[0];
     const modelUrl = convertFileSrc(rawPath);
     console.log("[live2d] raw path:", rawPath);
@@ -67,14 +70,13 @@ export class Live2DRenderer {
 
     console.log("[live2d] waiting for Cubism Core…");
     await waitForCubismCore(8000);
-    console.log("[live2d] Cubism Core ready:", typeof (globalThis as Record<string, unknown>).Live2DCubismCore);
+    console.log("[live2d] Cubism Core ready");
 
-    console.log("[live2d] fetching model3.json…");
-    const model = await Live2DModel.from(modelUrl, { autoInteract: false });
+    console.log("[live2d] Live2DModel.from…");
+    const model = await Live2DModel.from(modelUrl);
     console.log("[live2d] model loaded, adding to stage");
     this.app.stage.addChild(model);
 
-    // Fit model inside the current canvas.
     const canvas = this.app.canvas;
     const scale =
       Math.min(canvas.width / model.width, canvas.height / model.height) * 0.9;
@@ -83,25 +85,26 @@ export class Live2DRenderer {
     model.position.set(canvas.width / 2, canvas.height / 2);
 
     this.model = model;
+    console.log("[live2d] ready");
   }
 
   transitionTo(animKey: string, _crossfadeMs?: number): void {
     if (!this.model) return;
-    // Strip texture suffix ("happy_relieved" → "happy").
     const dominant = animKey.split("_")[0];
 
-    // Try expression first (non-looping morph), then motion group.
-    try {
-      // @naari3's API exposes expression() and motion() directly on the model.
-      const expr = (this.model as unknown as { expression?: (name: string) => void }).expression;
-      expr?.(dominant);
-    } catch {
-      // ignore — model may not declare an expression for this state
-    }
+    // untitled-pixi-live2d-engine API: model.motion(group, index?, priority?)
     try {
       this.model.motion(dominant);
     } catch {
-      // ignore — no motion group for this state
+      // no motion group for this state — safe to ignore
+    }
+    // Expression support varies per model; wrap in try for safety.
+    try {
+      const expr = (this.model as unknown as { expression?: (name: string) => void })
+        .expression;
+      expr?.(dominant);
+    } catch {
+      // no expression
     }
   }
 

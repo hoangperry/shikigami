@@ -8,9 +8,9 @@ importers:
 
   .:
     dependencies:
-      '@naari3/pixi-live2d-display':
-        specifier: ^1.2.5
-        version: 1.2.5(pixi.js@8.18.1)
+      '@pixi/sound':
+        specifier: ^6.0.1
+        version: 6.0.1(pixi.js@8.18.1)
       '@tauri-apps/api':
         specifier: ^2.1.1
         version: 2.10.1
@@ -26,6 +26,9 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.2.5(react@19.2.5)
+      untitled-pixi-live2d-engine:
+        specifier: ^1.0.2
+        version: 1.0.2(@pixi/sound@6.0.1(pixi.js@8.18.1))(pixi.js@8.18.1)
       zustand:
         specifier: ^5.0.2
         version: 5.0.12(@types/react@19.2.14)(react@19.2.5)
@@ -376,13 +379,13 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@naari3/pixi-live2d-display@1.2.5':
-    resolution: {integrity: sha512-pRHT74NtUmWCGwE+zabEe5zAeZ2MTYtgsRnQwDg5ompj351+zLvwNc9GnVSrcHKHM3OSExV971R2A3S5IdFN3Q==}
-    peerDependencies:
-      pixi.js: ^8.0.0
-
   '@pixi/colord@2.9.6':
     resolution: {integrity: sha512-nezytU2pw587fQstUu1AsJZDVEynjskwOL+kibwcdxsMBFqPsFFNA7xl0ii/gXuDi6M0xj3mfRJj8pBSc2jCfA==}
+
+  '@pixi/sound@6.0.1':
+    resolution: {integrity: sha512-hpFlQSScAR2L/CsEoIvDi7s1oGsu8y9Zd742Vd3982N+q3IF2vFuIfV9HN4ryjlGnhCT8yBlEgs1gp4G9Rt9TA==}
+    peerDependencies:
+      pixi.js: ^8.0.0
 
   '@rolldown/pluginutils@1.0.0-beta.27':
     resolution: {integrity: sha512-+d0F4MKMCbeVUJwG96uQ4SgAznZNSq93I3V+9NHA4OpvqG8mRCpGdKmK8l/dl02h2CCDHwW2FqilnTyDcAnqjA==}
@@ -1064,6 +1067,12 @@ packages:
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
+  untitled-pixi-live2d-engine@1.0.2:
+    resolution: {integrity: sha512-gL1Ep/7SpOIM1fx+GZYKF0iuStGlSRs85T8OZseTkYYs6WE3tdjU5IiIN+W3kqBWMtu2Sl0ycG931eUkinzMYA==}
+    peerDependencies:
+      '@pixi/sound': ^6.0.1
+      pixi.js: ^8.13.1
+
   update-browserslist-db@1.2.3:
     resolution: {integrity: sha512-Js0m9cx+qOgDxo0eMiFGEueWztz+d4+M3rGlmKPT+T4IS/jP4ylw3Nwpu6cpTTP8R1MAC1kF4VbdLt3ARf209w==}
     hasBin: true
@@ -1426,11 +1435,11 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@naari3/pixi-live2d-display@1.2.5(pixi.js@8.18.1)':
+  '@pixi/colord@2.9.6': {}
+
+  '@pixi/sound@6.0.1(pixi.js@8.18.1)':
     dependencies:
       pixi.js: 8.18.1
-
-  '@pixi/colord@2.9.6': {}
 
   '@rolldown/pluginutils@1.0.0-beta.27': {}
 
@@ -2055,6 +2064,11 @@ snapshots:
   typescript@5.9.3: {}
 
   undici-types@6.21.0: {}
+
+  untitled-pixi-live2d-engine@1.0.2(@pixi/sound@6.0.1(pixi.js@8.18.1))(pixi.js@8.18.1):
+    dependencies:
+      '@pixi/sound': 6.0.1(pixi.js@8.18.1)
+      pixi.js: 8.18.1
 
   update-browserslist-db@1.2.3(browserslist@4.28.2):
     dependencies:
