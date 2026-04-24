@@ -78,18 +78,31 @@ export class Live2DRenderer {
 
     console.log("[live2d] Live2DModel.from…");
     const model = await Live2DModel.from(modelUrl);
-    console.log("[live2d] model loaded, adding to stage");
+    console.log("[live2d] model loaded", { w: model.width, h: model.height });
     this.app.stage.addChild(model);
 
-    const canvas = this.app.canvas;
-    const scale =
-      Math.min(canvas.width / model.width, canvas.height / model.height) * 0.9;
-    model.scale.set(scale);
-    model.anchor.set(0.5, 0.5);
-    model.position.set(canvas.width / 2, canvas.height / 2);
-
     this.model = model;
+    this.fit();
     console.log("[live2d] ready");
+
+    // Re-centre on container resize (user drags/resizes the overlay).
+    const onResize = () => this.fit();
+    window.addEventListener("resize", onResize);
+    (this.model as unknown as { __onResize?: () => void }).__onResize = onResize;
+  }
+
+  private fit(): void {
+    if (!this.app || !this.model) return;
+    // app.screen is logical CSS pixels. canvas.width is backing-store pixels
+    // (= CSS × devicePixelRatio); using it gave a scale factor too large for
+    // the visible area and pushed the character past the right edge on retina.
+    const w = this.app.screen.width;
+    const h = this.app.screen.height;
+    const m = this.model;
+    const scale = Math.min(w / m.width, h / m.height) * 0.9;
+    m.scale.set(scale);
+    m.anchor.set(0.5, 0.5);
+    m.position.set(w / 2, h / 2);
   }
 
   transitionTo(animKey: string, _crossfadeMs?: number): void {
@@ -114,6 +127,8 @@ export class Live2DRenderer {
 
   dispose(): void {
     if (this.model) {
+      const ref = this.model as unknown as { __onResize?: () => void };
+      if (ref.__onResize) window.removeEventListener("resize", ref.__onResize);
       this.model.destroy({ children: true, texture: false });
       this.model = null;
     }
