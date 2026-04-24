@@ -107,13 +107,53 @@ export function CharacterStage() {
 
     (async () => {
       try {
-        const chars = await listCharacters();
-        if (cancelled) return;
+        // Browser-only dev mode: synthesize a Hiyori payload pointing at
+        // /hiyori/ served by Vite so we can debug Live2D in Safari/Chrome.
+        const isTauri =
+          typeof (globalThis as Record<string, unknown>).__TAURI_INTERNALS__ !== "undefined";
+
+        let chars: CharacterSummary[];
+        let character: ActiveCharacter | null;
+        if (isTauri) {
+          chars = await listCharacters();
+          if (cancelled) return;
+          character = await getActiveCharacter();
+        } else {
+          log("browser dev mode — using public/hiyori payload");
+          chars = [
+            {
+              id: "hiyori",
+              name: "Hiyori (browser dev)",
+              author: "Live2D Inc.",
+              version: "1.0.0",
+              is_active: true,
+              default_state: "idle",
+              state_count: 5,
+            },
+          ];
+          character = {
+            id: "hiyori",
+            name: "Hiyori (browser dev)",
+            default_state: "idle",
+            states: Object.fromEntries(
+              ["idle", "happy", "focused", "warning", "sleepy"].map((s) => [
+                s,
+                {
+                  fps: 30,
+                  loop: true,
+                  then: null,
+                  duration_ms: null,
+                  frames: ["/hiyori/frame_00.model3.json"],
+                  textures: [],
+                },
+              ]),
+            ),
+          } as ActiveCharacter;
+        }
         setAllCharacters(chars);
         log(`found ${chars.length} character(s): ${chars.map((c) => c.id).join(", ") || "(none)"}`);
 
         if (!containerRef.current) return;
-        const character = await getActiveCharacter();
         if (cancelled) return;
         if (!character) {
           log("no active character");

@@ -64,13 +64,11 @@ export class Live2DRenderer {
     }
 
     const rawPath = defaultState.frames[0];
-    // In a plain browser (no Tauri), __TAURI_INTERNALS__ is undefined and
-    // convertFileSrc returns a bogus 'asset://' URL the browser cannot
-    // fetch. Fall back to '/hiyori/...' served out of Vite's public/.
+    // In a plain browser (no Tauri), the raw path is already a URL from
+    // CharacterStage's dev-mode payload (/hiyori/...). Otherwise turn the
+    // absolute disk path into an asset:// URL the Tauri WebView can fetch.
     const isTauri = typeof (globalThis as Record<string, unknown>).__TAURI_INTERNALS__ !== "undefined";
-    const modelUrl = isTauri
-      ? convertFileSrc(rawPath)
-      : `/hiyori/${rawPath.split("/").pop() ?? "frame_00.model3.json"}`;
+    const modelUrl = isTauri ? convertFileSrc(rawPath) : rawPath;
     console.log("[live2d] raw path:", rawPath);
     console.log("[live2d] asset url:", modelUrl, "(tauri:", isTauri, ")");
 
