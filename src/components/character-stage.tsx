@@ -89,7 +89,7 @@ export function CharacterStage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Tray menu events.
+  // Tray menu events + hot-reload trigger.
   useEffect(() => {
     const unsubs: UnlistenFn[] = [];
     (async () => {
@@ -101,6 +101,16 @@ export function CharacterStage() {
       );
       unsubs.push(
         await listen("tray:position_reset", () => log("window reset to center")),
+      );
+      // Filesystem watcher noticed a character change in
+      // ~/.shikigami/characters/. Reload the window so the renderer
+      // picks up the swapped or renamed assets cleanly. Cheap brute-
+      // force solution; in-place renderer remount is a future polish.
+      unsubs.push(
+        await listen("characters:changed", () => {
+          log("character dir changed — reloading");
+          window.location.reload();
+        }),
       );
     })();
     return () => {

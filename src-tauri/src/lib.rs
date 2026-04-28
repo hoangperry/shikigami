@@ -69,6 +69,13 @@ pub fn run() {
             app.manage(passthrough_state.clone());
             passthrough::spawn(app.handle().clone(), passthrough_state);
 
+            // Hot-reload watcher for ~/.shikigami/characters/. New /
+            // changed character dirs trigger a registry rescan + a
+            // `characters:changed` event the frontend listens for.
+            if let Some(reg) = app.try_state::<Arc<CharacterRegistry>>() {
+                character::watcher::spawn(app.handle().clone(), reg.inner().clone());
+            }
+
             if let Some(w) = app.get_webview_window("main") {
                 // Position + size are restored by tauri-plugin-window-state
                 // on launch (it remembers wherever the user dragged the

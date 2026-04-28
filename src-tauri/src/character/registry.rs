@@ -25,6 +25,33 @@ impl CharacterRegistry {
         }
     }
 
+    /// Drop the cached map and rescan all discovery paths. Use after
+    /// hot-reload events; preserves the active selection if it still
+    /// resolves to a loaded character.
+    pub fn reload_from_default_paths(&self) -> LoadReport {
+        self.characters.write().unwrap().clear();
+        let report = self.load_from_default_paths();
+        // If the active character disappeared (e.g. user deleted it),
+        // fall back to the first remaining one to keep the UI alive.
+        let still_present = {
+            let active = self.active.read().unwrap().clone();
+            let map = self.characters.read().unwrap();
+            active.is_some_and(|id| map.contains_key(&id))
+        };
+        if !still_present {
+            *self.active.write().unwrap() = None;
+            // load_from_default_paths above already auto-selects when
+            // active is None, but it ran *before* we cleared the
+            // mismatch. Re-pick from the now-stable map.
+            let map = self.characters.read().unwrap();
+            if let Some(first) = map.keys().next().cloned() {
+                drop(map);
+                *self.active.write().unwrap() = Some(first);
+            }
+        }
+        report
+    }
+
     pub fn load_from_default_paths(&self) -> LoadReport {
         let mut report = LoadReport::default();
         for path in discover_character_paths() {
