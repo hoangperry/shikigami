@@ -1,0 +1,119 @@
+name: Release
+
+# Triggered by pushing a `v*` tag (e.g. `v0.1.0-alpha.0`). Builds the
+# macOS DMG and attaches it to a GitHub Release. Code signing is
+# best-effort: when the `APPLE_SIGNING_IDENTITY` secret + Keychain
+# certificate are configured the bundle is signed; otherwise an
+# unsigned DMG is uploaded with a one-line install note in the release
+# body.
+#
+# Notarization (Path B in the README) requires a paid Apple Developer
+# Program enrolment and additional secrets — see the commented block
+# at the bottom of the build step for the env vars Tauri reads.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: # manual trigger from the Actions tab
+
+permissions:
+  contents: write # needed to create the GitHub Release + upload assets
+
+jobs:
+  macos-dmg:
+    name: macOS DMG (aarch64)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - name: Install frontend deps
+        run: pnpm install --frozen-lockfile
+
+      # Optional code-sign step: only runs when an APPLE_CERTIFICATE
+      # secret is provided (base64 .p12). Without it we still build a
+      # working unsigned DMG that end users can install via the xattr
+      # workaround documented in README.md.
+      - name: Import Apple signing certificate
+        if: env.APPLE_CERTIFICATE != ''
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          # Decode the cert + import to a fresh build keychain.
+          echo "$APPLE_CERTIFICATE" | base64 --decode > /tmp/cert.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import /tmp/cert.p12 -k build.keychain \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          rm /tmp/cert.p12
+
+      - name: Build signed DMG
+        env:
+          # Tauri reads these for code-signing + notarization. All are
+          # optional — missing values produce an unsigned-but-bundled DMG.
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: pnpm tauri:build
+
+      - name: Locate artifacts
+        id: artifacts
+        run: |
+          DMG=$(ls src-tauri/target/release/bundle/dmg/*.dmg | head -1)
+          APP_TGZ_NAME=$(basename "$DMG" .dmg).app.tar.gz
+          tar -C src-tauri/target/release/bundle/macos -czf "$APP_TGZ_NAME" Shikigami.app
+          echo "dmg=$DMG" >> "$GITHUB_OUTPUT"
+          echo "app_tgz=$APP_TGZ_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Compute checksums
+        run: |
+          shasum -a 256 \
+            "${{ steps.artifacts.outputs.dmg }}" \
+            "${{ steps.artifacts.outputs.app_tgz }}" \
+            > SHA256SUMS.txt
+
+      - name: Create GitHub Release + upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true # human approves before going public
+          generate_release_notes: true
+          files: |
+            ${{ steps.artifacts.outputs.dmg }}
+            ${{ steps.artifacts.outputs.app_tgz }}
+            SHA256SUMS.txt
+          body: |
+            ## macOS install
+
+            1. Download `Shikigami_*.dmg` (or the `.app.tar.gz` if you prefer).
+            2. Drag `Shikigami.app` into `/Applications`.
+            3. First launch needs a Gatekeeper bypass — pick one:
+               - **Settings:** *System Settings → Privacy & Security → "Open Anyway"*
+               - **Terminal:** `xattr -cr /Applications/Shikigami.app && open /Applications/Shikigami.app`
+
+            Verified checksums in `SHA256SUMS.txt`.
+
+            See the full README for hook installation + character setup.
