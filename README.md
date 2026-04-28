@@ -69,6 +69,61 @@ python3 scripts/install-hook.py uninstall
 
 ---
 
+## Installing the .dmg (end users)
+
+The `Shikigami_*.dmg` produced by `pnpm tauri:build` is signed with an
+**Apple Development** certificate (suitable for the original author's
+test devices) but is **not** notarized through Apple's distribution
+service. macOS Gatekeeper will block it on first launch with a
+"unidentified developer" prompt.
+
+Two safe ways past it on a fresh Mac:
+
+**Option 1 — system Settings**
+1. Double-click the .dmg, drag `Shikigami.app` into `/Applications`
+2. Try to open the app — macOS will refuse
+3. Open *System Settings → Privacy & Security* → scroll to the
+   "Shikigami was blocked" notice → click **Open Anyway**
+4. Confirm in the dialog that follows
+
+**Option 2 — terminal (faster)**
+```bash
+xattr -cr /Applications/Shikigami.app
+open /Applications/Shikigami.app
+```
+`xattr -cr` strips the `com.apple.quarantine` attribute set on every
+file downloaded from the internet. The signature itself remains intact
+— this only tells Gatekeeper that you trust the source.
+
+A future release with full Apple Developer Program notarization will
+remove this step. The signature you see today is genuine; just not yet
+notarized:
+
+```bash
+codesign -dv /Applications/Shikigami.app
+# Authority=Apple Development: Hoang Truong Nhat (Y44JV6U4Q9)
+# Authority=Apple Worldwide Developer Relations Certification Authority
+# Authority=Apple Root CA
+```
+
+---
+
+## Building a signed .dmg yourself
+
+If you have your own Apple signing identity (`security find-identity -v
+-p codesigning`), pass it via env:
+
+```bash
+APPLE_SIGNING_IDENTITY="Apple Development: <your name> (<team-id>)" \
+  pnpm tauri:build
+```
+
+For real distribution you need a **Developer ID Application** cert
+(Apple Developer Program, $99/year) plus notarization credentials —
+see [Tauri's macOS distribution guide](https://v2.tauri.app/distribute/sign/macos/).
+
+---
+
 ## How It Works
 
 Events flow through a seven-stage pipeline:
