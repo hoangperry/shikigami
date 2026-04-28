@@ -160,7 +160,9 @@ impl SessionRegistry {
             .collect();
         // Most-recently-active first so the picker shows live sessions
         // at the top.
-        out.sort_by(|a, b| b.last_seen_ms.cmp(&a.last_seen_ms));
+        // Most-recently-active first; clippy prefers `sort_by_key` over the
+        // closure-based form for simple key extraction.
+        out.sort_by_key(|s| std::cmp::Reverse(s.last_seen_ms));
         out
     }
 
