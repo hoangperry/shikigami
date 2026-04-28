@@ -50,6 +50,15 @@ jobs:
         working-directory: src-tauri
         run: cargo fmt --all -- --check
 
+      # Tauri's `generate_context!()` proc-macro reads `frontendDist`
+      # ("../dist") at compile time and panics if the path doesn't exist.
+      # Cheap stub keeps the macro happy without running the full Vite
+      # build for clippy / tests.
+      - name: Stub frontend dist for tauri::generate_context!
+        run: |
+          mkdir -p dist
+          echo '<!doctype html><title>stub</title>' > dist/index.html
+
       - name: cargo clippy
         working-directory: src-tauri
         run: cargo clippy --all-targets --all-features -- -D warnings
