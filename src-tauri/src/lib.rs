@@ -48,6 +48,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .manage(registry)
         .setup(|app| {
@@ -125,7 +126,8 @@ pub fn run() {
             set_active_character,
             list_sessions,
             set_session_allowed,
-            set_character_bbox
+            set_character_bbox,
+            install_character_zip
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -372,6 +374,29 @@ fn set_session_allowed(
     sessions: tauri::State<'_, Arc<SessionRegistry>>,
 ) {
     sessions.set_allowed(&id, allowed);
+}
+
+/// Install a `.shikigami` zip package. Returns the new character id on
+/// success. The filesystem watcher picks up the new directory inside
+/// `~/.shikigami/characters/` and triggers the usual hot-reload chain.
+#[tauri::command]
+fn install_character_zip(path: String) -> Result<String, String> {
+    let p = std::path::Path::new(&path);
+    match character::installer::install_zip(p) {
+        Ok(installed) => {
+            tracing::info!(
+                "installed character {:?} from {} → {}",
+                installed.id,
+                p.display(),
+                installed.install_dir.display()
+            );
+            Ok(installed.id)
+        }
+        Err(e) => {
+            tracing::warn!("install_character_zip failed: {e}");
+            Err(e.to_string())
+        }
+    }
 }
 
 fn init_tracing() {

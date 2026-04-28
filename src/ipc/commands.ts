@@ -52,6 +52,12 @@ export function setCharacterBbox(bbox: CharacterBBox): Promise<void> {
   return invoke<void>("set_character_bbox", { bbox });
 }
 
+/** Install a `.shikigami` zip package. Returns the new character id on
+ *  success; the filesystem watcher then triggers a registry reload. */
+export function installCharacterZip(path: string): Promise<string> {
+  return invoke<string>("install_character_zip", { path });
+}
+
 export type CharacterSummary = {
   id: string;
   name: string;

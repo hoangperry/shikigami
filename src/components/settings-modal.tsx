@@ -2,9 +2,11 @@
 // Mirrors the Rust `Settings` struct and persists updates via update_settings.
 
 import { useEffect, useState } from "react";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import {
   applyRuntimeSettings,
   getSettings,
+  installCharacterZip,
   listCharacters,
   listSessions,
   setActiveCharacter,
@@ -212,6 +214,40 @@ export function SettingsModal({ open, onClose }: Props) {
               </option>
             ))}
           </select>
+        </Row>
+
+        <Row label="Install .shikigami package">
+          <button
+            onClick={async () => {
+              const picked = await openDialog({
+                multiple: false,
+                directory: false,
+                filters: [{ name: "Shikigami package", extensions: ["shikigami", "zip"] }],
+              });
+              if (typeof picked !== "string") return;
+              try {
+                const id = await installCharacterZip(picked);
+                console.log(`installed character: ${id}`);
+                // Watcher fires `characters:changed` → window reloads
+                // automatically, picking up the new character.
+              } catch (err) {
+                console.warn("install failed:", err);
+                alert(`Install failed: ${String(err)}`);
+              }
+            }}
+            disabled={saving}
+            style={{
+              padding: "4px 10px",
+              borderRadius: 6,
+              border: "1px solid rgba(255,255,255,0.2)",
+              background: "rgba(255,255,255,0.08)",
+              color: "#f5f5f5",
+              fontSize: 11,
+              cursor: "pointer",
+            }}
+          >
+            Browse…
+          </button>
         </Row>
 
         <Row label={`Scale — ${Math.round(settings.scale * 100)}%`}>

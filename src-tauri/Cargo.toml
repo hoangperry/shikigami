@@ -15,6 +15,8 @@ tauri-build = { version = "2.0", features = [] }
 # Tauri core
 tauri = { version = "2.1", features = ["macos-private-api", "tray-icon", "protocol-asset"] }
 tauri-plugin-fs = "2.2"
+# Native open-file picker for the .shikigami install button.
+tauri-plugin-dialog = "2"
 # Persists window position + size across launches so the user doesn't lose
 # their preferred placement. Saves to OS data dir, restores on next start.
 tauri-plugin-window-state = "2"

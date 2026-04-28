@@ -19,6 +19,7 @@
   "dependencies": {
     "@pixi/sound": "^5.2.3",
     "@tauri-apps/api": "^2.1.1",
+    "@tauri-apps/plugin-dialog": "^2.7.0",
     "@tauri-apps/plugin-fs": "^2.2.0",
     "pixi-live2d-display-mulmotion": "0.5.0-mm-6",
     "pixi.js": "^7.4.3",
