@@ -4,6 +4,8 @@
 > **Scope**: Maps PRD v0.2 requirements to concrete modules, interfaces, data types, algorithms, and test strategy for v0.1 (macOS / sprite / Claude Code only).
 > **Audience**: Implementers (human or AI), including Codex for the character-asset task.
 > **Non-Goals**: This is not a tutorial. Reader is assumed to know Rust, TypeScript, React, and general game/UI patterns.
+>
+> **⚠️ Drift note (2026-04-26)**: Several modules planned in this doc were not built in v0.1 (hot reload, runtime atlas, separate transition engine, Rust CLI). Sections referring to them are flagged inline with **🚧 Not implemented**. The shipped surface is documented in [`CONTRIBUTING.md`](./CONTRIBUTING.md) and [`CONFIG.md`](./CONFIG.md) — those two are the ground truth for current behavior; this TDD remains the design intent.
 
 ---
 
@@ -94,65 +96,56 @@ shikigami/
 │       │   └── canonical.rs            (state + texture enums)
 │       ├── character/
 │       │   ├── mod.rs
-│       │   ├── loader.rs               (zip unpack, manifest parse)
-│       │   ├── manifest.rs             (schema v1.0)
-│       │   ├── watcher.rs              (hot reload)
-│       │   └── atlas.rs                (optional sprite atlas build)
-│       ├── window/
+│       │   ├── loader.rs               (manifest parse + asset validation)
+│       │   ├── manifest.rs             (schema v1.0 + validation)
+│       │   └── registry.rs             (in-memory char registry + active selection)
+│       │   # 🚧 Not implemented: watcher.rs (hot reload), atlas.rs (atlas builder)
+│       ├── tts/                        (multi-provider TTS — added v0.1)
 │       │   ├── mod.rs
-│       │   ├── overlay.rs              (transparent + always-on-top)
-│       │   ├── position.rs             (persistence + recovery)
-│       │   └── screen_capture.rs       (OBS/Zoom detection)
-│       ├── tray/
-│       │   └── menu.rs
-│       ├── ipc/
-│       │   ├── mod.rs
-│       │   └── commands.rs             (Tauri command handlers)
+│       │   ├── provider.rs             (TtsProvider trait + TtsError)
+│       │   ├── say_macos.rs            (macOS `say(1)` subprocess)
+│       │   ├── piper.rs                (local Piper TTS subprocess)
+│       │   ├── openai.rs               (OpenAI TTS HTTP client)
+│       │   ├── elevenlabs.rs           (ElevenLabs HTTP client)
+│       │   └── cleanup.rs              (background sweep of stale audio)
+│       ├── tray.rs                     (system tray menu — flat, not module)
 │       ├── config/
 │       │   ├── mod.rs
-│       │   ├── settings.rs
+│       │   ├── settings.rs             (Settings + TtsConfig)
 │       │   └── paths.rs                (OS-standard dirs)
-│       └── errors.rs
+│       └── lib.rs / main.rs            (Tauri commands inline; window/ipc folded in)
+│       # 🚧 Not implemented: window/, ipc/, errors.rs (folded into lib.rs)
 │
-├── src/                                (React + TS frontend)
+├── src/                                (React + TS frontend — kebab-case files)
 │   ├── main.tsx
 │   ├── App.tsx
 │   ├── components/
-│   │   ├── Character.tsx               (PixiJS canvas)
-│   │   ├── SpeechBubble.tsx
-│   │   ├── SettingsModal.tsx
-│   │   ├── CharacterLibrary.tsx
-│   │   └── DebugOverlay.tsx
+│   │   ├── character-stage.tsx         (PixiJS host + state event subscriber)
+│   │   ├── speech-bubble.tsx
+│   │   └── settings-modal.tsx
 │   ├── renderer/
-│   │   ├── SpriteRenderer.ts           (PixiJS implementation)
-│   │   ├── AnimationLoader.ts          (frame sequence loading)
-│   │   ├── TransitionEngine.ts         (crossfade / instant)
-│   │   └── types.ts
-│   ├── state/
-│   │   ├── emotion.ts                  (Zustand store, mirrors backend)
-│   │   ├── character.ts
-│   │   └── settings.ts
+│   │   ├── sprite-renderer.ts          (PixiJS v7 frame sequence renderer)
+│   │   └── live2d-renderer.ts          (pixi-live2d-display-mulmotion)
 │   ├── ipc/
-│   │   ├── commands.ts                 (typed wrappers over Tauri invoke)
-│   │   └── events.ts                   (Tauri event subscriptions)
-│   └── styles/
-│       └── global.css
+│   │   └── commands.ts                 (typed Tauri invoke + event types)
+│   └── styles in components (CSS-in-JS via inline `style`)
+│   # 🚧 Not implemented: Zustand state stores, CharacterLibrary grid,
+│   # DebugOverlay (collapsed into character-stage), AnimationLoader
+│   # (frames loaded inline), TransitionEngine (crossfade folded into
+│   # sprite-renderer), separate global.css
 │
 ├── hooks/                              (Claude Code integration)
-│   ├── shikigami-hook.sh               (POSIX)
-│   ├── shikigami-hook.ps1              (Windows, for v0.2)
+│   ├── shikigami-hook.py               (Python — replaces planned .sh)
 │   └── README.md
+│   # 🚧 Not implemented: .ps1 Windows variant
 │
-├── cli/                                (separate Rust binary: shikigami CLI)
-│   ├── Cargo.toml
-│   └── src/
-│       ├── main.rs
-│       └── commands/
-│           ├── install.rs              (install character)
-│           ├── pack.rs                 (pack .shikigami)
-│           ├── validate.rs             (validate manifest)
-│           ├── install_hook.rs         (modify ~/.claude/settings.json)
-│           └── doctor.rs               (diagnostics)
+├── scripts/                            (one-off Bash + Python utilities)
+│   ├── fetch-hiyori-sample.sh          (default character download)
+│   ├── fetch-live2d-sample.sh          (any Live2D Inc. sample)
+│   ├── fetch-fili-vtuber.sh            (CC0 community VTuber)
+│   ├── reskin-character.sh             (recolor variants via ImageMagick)
+│   └── install-hook.py                 (replaces planned `shikigami install-hook` CLI)
+│   # 🚧 Not implemented: separate cli/ Rust crate (Python scripts cover the surface)
 │
 ├── schemas/                            (JSON Schemas — source of truth)
 │   ├── manifest.v1.0.json
@@ -321,31 +314,39 @@ Hook scripts re-read `config.json` on each invocation to get current port.
 ### 4.3 Bearer Token (`src-tauri/src/event/auth.rs`)
 
 - **Generation**: on first launch, create 32-byte random hex in `~/.shikigami/token` with `0600` permissions
-- **Rotation**: manual via tray menu or `shikigami doctor --rotate-token`; rotating requires re-running `shikigami install-hook` (hook script references the token file directly)
+- **Rotation**: 🚧 No CLI yet — manual: stop Shikigami, `rm ~/.shikigami/token`, restart (a fresh token is generated). Hook scripts re-read the token on every invocation, so no re-install needed.
 - **Comparison**: constant-time comparison via `subtle` crate to prevent timing attacks
 
 ### 4.4 Hook Bridge Script
 
-```bash
-# hooks/shikigami-hook.sh
-#!/bin/bash
-set -euo pipefail
-CONFIG="${HOME}/.shikigami/config.json"
-TOKEN="${HOME}/.shikigami/token"
-PORT="$(jq -r '.port // 7796' "$CONFIG" 2>/dev/null || echo 7796)"
-URL="http://127.0.0.1:${PORT}/v1/events"
+Implemented as **Python** (`hooks/shikigami-hook.py`) rather than POSIX shell — chosen because macOS ships `python3` by default, and the destructive-pattern detection + JSON transform are cleaner in Python than `jq`-piped bash. Reads the Claude Code hook payload from stdin, transforms to a Shikigami `EventPayload`, POSTs to `/v1/events`. On `Stop`, additionally reads the transcript and POSTs the last assistant message to `/v1/say` for TTS playback.
 
-# Expects payload JSON on stdin from Claude Code hook system
-BODY="$(cat)"
+Sketch:
 
-curl -s --max-time 1 -o /dev/null \
-  -X POST "$URL" \
-  -H "Authorization: Bearer $(cat "$TOKEN")" \
-  -H "Content-Type: application/json" \
-  -d "$BODY" || true   # never block Claude Code on shikigami unavailability
+```python
+# hooks/shikigami-hook.py (excerpted)
+import json, sys, os, urllib.request, pathlib
+
+cc_event = json.loads(sys.stdin.read())
+home  = pathlib.Path(os.environ.get("SHIKIGAMI_HOME", pathlib.Path.home() / ".shikigami"))
+token = (home / "token").read_text().strip()
+port  = json.loads((home / "config.json").read_text()).get("port", 7796)
+
+payload = transform(cc_event)              # → Shikigami EventPayload v1.0
+req = urllib.request.Request(
+    f"http://127.0.0.1:{port}/v1/events",
+    data=json.dumps(payload).encode(),
+    headers={"Authorization": f"Bearer {token}",
+             "Content-Type": "application/json"},
+    method="POST",
+)
+try:
+    urllib.request.urlopen(req, timeout=2.0)  # fire-and-forget
+except Exception:
+    pass                                       # never block Claude Code
 ```
 
-`shikigami install-hook` rewrites `~/.claude/settings.json` to register the bridge on `PreToolUse`, `PostToolUse`, `Stop`, `UserPromptSubmit`.
+`python3 scripts/install-hook.py install` (replaces the planned `shikigami install-hook` Rust CLI) rewrites `~/.claude/settings.json` to register the bridge on `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`, and `SessionStart`. See `hooks/README.md` and `docs/CONFIG.md` for the full event-mapping table.
 
 ---
 
@@ -490,23 +491,17 @@ On error at any step:
   - Library grid shows ⚠ card
 ```
 
-### 6.2 Hot Reload (`src-tauri/src/character/watcher.rs`)
+### 6.2 Hot Reload — 🚧 Not implemented in v0.1
 
-`notify` crate watches `~/.shikigami/characters/` with debouncing 500ms. On change:
+Originally planned: `notify` crate watches `~/.shikigami/characters/` with debouncing 500ms; new dir → install flow, removed dir → uninstall event, modified file → reload on next transition.
 
-- New directory → attempt install flow on the new item
-- Removed directory → emit `character_uninstalled`
-- Modified file in active character → reload that state's animation on next transition
+Current behaviour: characters are scanned once at startup. Adding/changing a character requires restarting Shikigami. Tracked for v0.2.
 
-### 6.3 Runtime Atlas Building (`src-tauri/src/character/atlas.rs`)
+### 6.3 Runtime Atlas Building — 🚧 Not implemented in v0.1
 
-At install time (not runtime), pack frames per-state into a power-of-two texture sheet using a simple row-fit algorithm:
+Originally planned: pack frames per-state into power-of-two texture sheets at install time; frontend prefers atlases when present.
 
-- Max atlas size: 2048×2048 (compatibility with lowest-common-denominator GPUs)
-- If frames don't fit in one atlas → split into multiple atlases per state
-- Output: `<state>/atlas_<n>.webp` + `<state>/atlas.json` (UV coords per frame)
-
-Frontend prefers atlases when present, falls back to per-frame loading.
+Current behaviour: frames load individually via PixiJS `Assets.load()`. For Live2D characters this is moot (Cubism handles its own atlas). For sprite characters (e.g. `linh-pixel`), per-frame loading is fast enough at the current scales (≤ 30 frames/state).
 
 ### 6.4 Minimum Viable Character
 
@@ -519,21 +514,22 @@ Character passes validation with only `idle` and `happy` states. Missing states 
 
 ## 7. Renderer (Frontend)
 
-### 7.1 PixiJS Setup (`src/renderer/SpriteRenderer.ts`)
+### 7.1 PixiJS Setup (`src/renderer/sprite-renderer.ts` + `live2d-renderer.ts`)
 
-- PixiJS v8 WebGL renderer on transparent canvas
-- Single `Container` for character; `Sprite` swapped when frame advances
-- Resolution: device pixel ratio honored; frames pre-scaled via `resolution` param
-- `AnimationLoader` reads from Tauri IPC (backend provides base64 or file:// URL to atlases); PIXI Assets loader handles decode
+- **PixiJS v7** on transparent canvas (downgraded from v8 — `pixi-live2d-display-mulmotion` requires v7 peer dep, and the v8 Live2D forks proved untested in WKWebView)
+- **Two renderers** dispatched by `character-stage.tsx` based on `.model3.json` presence in the active character's frames:
+  - `sprite-renderer.ts` — frame sequence, `Container` + `Sprite` swap on frame advance
+  - `live2d-renderer.ts` — Cubism 4 model via `pixi-live2d-display-mulmotion/cubism4`, lipsync via `model.speak()`
+- Resolution: device pixel ratio honored via `resolution` + `autoDensity`
+- Live2D-only: blob-URL prebundling fallback for WKWebView XHR quirks (relative `.moc3` refs sometimes throw `Network error`)
 
-### 7.2 Transition Engine (`src/renderer/TransitionEngine.ts`)
+### 7.2 Transition Engine — folded into `sprite-renderer.ts`
 
-Two transition types:
+🚧 No separate `TransitionEngine.ts` shipped — crossfade lives directly inside `sprite-renderer.ts::transitionTo()` because the logic is ~30 lines and only one renderer needs it.
 
-- **Crossfade** (default, 200ms): two Sprites, one fading out while the other fades in. GPU alpha blend.
-- **Instant** (warnings, severity `critical`): immediate swap, no blend.
+Sprite renderer transition: 180ms crossfade by default (two `Sprite`s, alpha blended via `requestAnimationFrame`), instant swap available via `crossfadeMs = 0`. Live2D renderer "transitions" by triggering a new motion group from the manifest's `motion` field (smooth Cubism interpolation, no separate fade layer).
 
-Transition table (overridable by manifest):
+Original transition table from PRD intent (not yet wired):
 
 ```
 idle   → happy    : crossfade 150ms
@@ -903,7 +899,7 @@ Phase 1: Event → State → IPC (NO renderer yet)
   └── HTTP server + auth + port recovery
   └── State machine + dampening + texture extraction
   └── Frontend: receive state_changed event, render as text debug panel
-  └── Claude Code hook script + `shikigami install-hook` CLI
+  └── Claude Code hook script (`shikigami-hook.py`) + Python installer (`scripts/install-hook.py`) — Rust CLI not built
 
 Phase 2: Character Loading + Sprite Rendering
   └── .shikigami package loader + manifest validation

@@ -27,12 +27,28 @@ type Props = {
   state: ResolvedState | null;
   /** Optional extra info fields that future events can carry. */
   lastEventText?: string | undefined;
+  /** Currently-spoken TTS text. Takes priority over state-driven bubbles. */
+  spokenText?: string | undefined;
+  /** Monotonic id so the same text re-fires the bubble effect. */
+  spokenKey?: number | undefined;
 };
 
 function pickBubble(
   state: ResolvedState | null,
   lastEventText?: string,
+  spokenText?: string,
+  spokenKey?: number,
 ): BubbleContent | null {
+  // TTS-driven bubble takes priority — Hiyori is "speaking" right now.
+  if (spokenText && spokenText.trim().length > 0) {
+    return {
+      text: spokenText,
+      accent: "info",
+      // Rough estimate: ~12 chars/sec spoken, min 3s, max 12s.
+      ttl: Math.min(12000, Math.max(3000, spokenText.length * 80)),
+      key: spokenKey ?? 0,
+    };
+  }
   if (!state) return null;
   if (state.severity === "critical") {
     return {
@@ -69,13 +85,13 @@ const accentColors: Record<BubbleContent["accent"], string> = {
   critical: "rgba(220, 60, 60, 0.95)",
 };
 
-export function SpeechBubble({ state, lastEventText }: Props) {
+export function SpeechBubble({ state, lastEventText, spokenText, spokenKey }: Props) {
   const [current, setCurrent] = useState<BubbleContent | null>(null);
   const [visible, setVisible] = useState(false);
 
   // React to state changes: pick a bubble, if any.
   useEffect(() => {
-    const next = pickBubble(state, lastEventText);
+    const next = pickBubble(state, lastEventText, spokenText, spokenKey);
     if (!next) {
       // Let existing bubble fade naturally via its own TTL.
       return;
@@ -87,7 +103,15 @@ export function SpeechBubble({ state, lastEventText }: Props) {
       return () => window.clearTimeout(t);
     }
     return undefined;
-  }, [state?.event_id, lastEventText, state?.severity, state?.dominant, state?.texture]);
+  }, [
+    state?.event_id,
+    lastEventText,
+    state?.severity,
+    state?.dominant,
+    state?.texture,
+    spokenText,
+    spokenKey,
+  ]);
 
   if (!current) return null;
 

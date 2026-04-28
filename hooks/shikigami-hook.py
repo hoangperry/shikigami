@@ -73,8 +73,17 @@ def transform(cc_event: dict) -> dict | None:
     tool_name = cc_event.get("tool_name")
     tool_input = cc_event.get("tool_input") or {}
     tool_response = cc_event.get("tool_response") or {}
+    # Forward identifiers so the backend can group / filter events by
+    # session — lets the user pick which Claude Code tabs Hiyori reacts
+    # to when several are running simultaneously.
+    session_id = cc_event.get("session_id")
+    cwd = cc_event.get("cwd")
 
     payload: dict = {"schemaVersion": "1.0", "source": "claude-code"}
+    if isinstance(session_id, str) and session_id:
+        payload["sessionId"] = session_id
+    if isinstance(cwd, str) and cwd:
+        payload["cwd"] = cwd
 
     if hook_name == "PreToolUse":
         command = (tool_input.get("command") if isinstance(tool_input, dict) else "") or ""
@@ -161,12 +170,119 @@ def post(payload: dict, token: str, url: str) -> None:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=1.0) as resp:
+        with urllib.request.urlopen(req, timeout=2.0) as resp:
             log(f"POST {url} → {resp.status}")
     except urllib.error.URLError as e:
         log(f"POST failed: {e}")
     except Exception as e:  # never block Claude Code
         log(f"unexpected: {e}")
+
+
+# Strip code blocks, tool-use blocks, and excessive whitespace so the TTS
+# engine doesn't try to read raw JSON or markdown syntax aloud.
+_CODE_BLOCK = re.compile(r"```[\s\S]*?```")
+_INLINE_CODE = re.compile(r"`[^`]+`")
+_MD_LINK = re.compile(r"\[([^\]]+)\]\([^)]+\)")
+_MD_HEADING = re.compile(r"^#+\s*", re.MULTILINE)
+_MD_BULLET = re.compile(r"^[\s]*[-*+]\s+", re.MULTILINE)
+_WHITESPACE = re.compile(r"\s+")
+
+
+def _flatten_content(content) -> str:
+    """Claude Code transcript content can be str or list of typed blocks."""
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    parts: list[str] = []
+    for block in content:
+        if isinstance(block, dict):
+            # Skip tool_use / tool_result / thinking blocks — they are noise
+            # for spoken output. Only keep prose text blocks.
+            if block.get("type") in (None, "text"):
+                t = block.get("text") or ""
+                if isinstance(t, str):
+                    parts.append(t)
+    return "\n".join(parts)
+
+
+def clean_for_speech(text: str, max_chars: int = 400) -> str:
+    """Strip markdown / code so TTS reads natural prose. Truncate to keep the
+    spoken segment short — long monologues are user-hostile."""
+    if not text:
+        return ""
+    text = _CODE_BLOCK.sub(" (code) ", text)
+    text = _INLINE_CODE.sub("", text)
+    text = _MD_LINK.sub(r"\1", text)
+    text = _MD_HEADING.sub("", text)
+    text = _MD_BULLET.sub("", text)
+    text = _WHITESPACE.sub(" ", text).strip()
+    if len(text) > max_chars:
+        # Cut at last sentence boundary inside the cap.
+        cut = text[:max_chars]
+        for end in (". ", "! ", "? ", "\n"):
+            i = cut.rfind(end)
+            if i >= max_chars * 0.6:
+                return cut[: i + 1].strip()
+        return cut.strip()
+    return text
+
+
+def extract_last_assistant_text(transcript_path: str) -> str | None:
+    """Read the JSONL transcript and return the last assistant message text.
+    Returns None on read error / no assistant turn / empty content."""
+    try:
+        p = pathlib.Path(transcript_path)
+        if not p.is_file():
+            return None
+        # Transcripts can be large. Read all lines but only keep last 200.
+        with p.open("r", encoding="utf-8") as f:
+            lines = f.readlines()[-200:]
+    except OSError as e:
+        log(f"transcript read failed: {e}")
+        return None
+
+    for line in reversed(lines):
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        # Claude Code transcript schema: { "type": "assistant", "message": {...} }
+        # or top-level role/content.
+        msg = obj.get("message") if isinstance(obj.get("message"), dict) else obj
+        role = obj.get("type") or msg.get("role") or msg.get("type")
+        if role != "assistant":
+            continue
+        content = msg.get("content")
+        text = _flatten_content(content).strip()
+        if text:
+            return clean_for_speech(text)
+    return None
+
+
+def post_say(text: str, token: str, base_url: str) -> None:
+    """Trigger TTS via /v1/say. Same fire-and-forget contract as post()."""
+    if not text or len(text) < 8:
+        return
+    say_url = base_url.replace("/v1/events", "/v1/say")
+    body = json.dumps({"text": text}).encode("utf-8")
+    req = urllib.request.Request(
+        say_url,
+        data=body,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        # Longer timeout — TTS may take ~1-2s for cloud providers.
+        with urllib.request.urlopen(req, timeout=5.0) as resp:
+            log(f"POST {say_url} → {resp.status}")
+    except urllib.error.URLError as e:
+        log(f"POST say failed: {e}")
+    except Exception as e:
+        log(f"unexpected say: {e}")
 
 
 def main() -> int:
@@ -191,6 +307,16 @@ def main() -> int:
 
     url = os.environ.get("SHIKIGAMI_URL") or f"http://127.0.0.1:{read_port()}/v1/events"
     post(payload, token, url)
+
+    # Stop hook = end of an assistant turn. Read the last assistant message
+    # from the transcript and pipe it through TTS so Hiyori speaks the reply
+    # aloud. Fire-and-forget — never blocks Claude Code.
+    if cc_event.get("hook_event_name") == "Stop":
+        transcript_path = cc_event.get("transcript_path")
+        if isinstance(transcript_path, str) and transcript_path:
+            last = extract_last_assistant_text(transcript_path)
+            if last:
+                post_say(last, token, url)
     return 0
 
 

@@ -103,6 +103,11 @@ impl CharacterRegistry {
                                 .map(|p| p.display().to_string())
                                 .collect(),
                             textures: s.textures.keys().cloned().collect(),
+                            motion: s.motion.clone(),
+                            motions: s.motions.clone(),
+                            motion_chain: s.motion_chain.clone(),
+                            expression: s.expression.clone(),
+                            expressions: s.expressions.clone(),
                         },
                     )
                 })
@@ -162,6 +167,20 @@ pub struct StatePayload {
     pub frames: Vec<String>,
     /// Names of optional texture variants available for this state.
     pub textures: Vec<String>,
+    /// Live2D motion group name to trigger when entering this state. None for
+    /// sprite characters or Live2D states that should not animate explicitly.
+    pub motion: Option<String>,
+    /// Pool of motion groups; renderer picks one at random per transition.
+    /// Overrides `motion` when non-empty.
+    #[serde(default)]
+    pub motions: Vec<String>,
+    /// Sequential motion chain (group + delay between steps).
+    pub motion_chain: Vec<crate::character::manifest::MotionStep>,
+    /// Single Cubism expression name to blend on top of the motion.
+    pub expression: Option<String>,
+    /// Pool of expressions; renderer picks one at random.
+    #[serde(default)]
+    pub expressions: Vec<String>,
 }
 
 /// Enumerate candidate directories that may each hold manifest.json.

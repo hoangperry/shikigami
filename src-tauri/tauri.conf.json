@@ -14,12 +14,12 @@
       {
         "label": "main",
         "title": "Shikigami",
-        "width": 900,
-        "height": 1000,
-        "minWidth": 320,
-        "minHeight": 400,
-        "maxWidth": 1600,
-        "maxHeight": 1800,
+        "width": 480,
+        "height": 640,
+        "minWidth": 280,
+        "minHeight": 360,
+        "maxWidth": 1200,
+        "maxHeight": 1600,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
@@ -36,15 +36,13 @@
     ],
     "macOSPrivateApi": true,
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob: asset: https://asset.localhost; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval' https://cubism.live2d.com; connect-src 'self' asset: https://asset.localhost https://cubism.live2d.com;",
+      "csp": null,
       "assetProtocol": {
         "enable": true,
         "scope": [
           "$HOME/.shikigami/characters/**",
-          "$RESOURCE/characters/**",
-          "/Users/hoangtruong/coding/shikigami/characters/**",
-          "/Users/hoangtruong/coding/shikigami/characters/**/*",
-          "/Users/hoangtruong/coding/shikigami/**"
+          "$HOME/.shikigami/tts/**",
+          "$RESOURCE/characters/**"
         ]
       }
     }
@@ -57,6 +55,13 @@
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns"
+    ],
+    "resources": [
+      "../characters/hiyori/**/*",
+      "../characters/haru/**/*",
+      "../characters/mao/**/*",
+      "../characters/fili/**/*",
+      "../characters/linh-pixel/**/*"
     ],
     "macOS": {
       "minimumSystemVersion": "12.0",

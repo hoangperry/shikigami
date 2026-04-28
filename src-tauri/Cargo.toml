@@ -15,6 +15,9 @@ tauri-build = { version = "2.0", features = [] }
 # Tauri core
 tauri = { version = "2.1", features = ["macos-private-api", "tray-icon", "protocol-asset"] }
 tauri-plugin-fs = "2.2"
+# Persists window position + size across launches so the user doesn't lose
+# their preferred placement. Saves to OS data dir, restores on next start.
+tauri-plugin-window-state = "2"
 
 # Async runtime + HTTP server
 tokio = { version = "1", features = ["full"] }
@@ -45,6 +48,19 @@ thiserror = "2"
 
 # Directories
 dirs = "5"
+
+# HTTP client for cloud TTS providers (OpenAI, ElevenLabs).
+# rustls-tls keeps the binary lean and works on macOS without OpenSSL.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+
+# UUIDs for unique TTS output filenames.
+uuid = { version = "1", features = ["v4"] }
+
+# Base64 for ElevenLabs/OpenAI multipart audio response handling.
+base64 = "0.22"
+
+# `async fn` inside trait — used by tts::TtsProvider.
+async-trait = "0.1"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt", "test-util"] }

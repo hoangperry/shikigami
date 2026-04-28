@@ -11,10 +11,17 @@
   "renderer": "live2d",
   "defaultState": "idle",
   "states": {
-    "idle":    { "path": "assets/states/idle", "fps": 30, "loop": true },
-    "happy":   { "path": "assets/states/idle", "fps": 30, "loop": false, "then": "idle", "durationMs": 2000 },
-    "focused": { "path": "assets/states/idle", "fps": 30, "loop": true },
-    "warning": { "path": "assets/states/idle", "fps": 30, "loop": true },
-    "sleepy":  { "path": "assets/states/idle", "fps": 30, "loop": true }
+    "idle":    { "path": "assets/states/idle", "fps": 30, "loop": true,  "motion": "Idle",
+                 "expressions": ["F01", "F02"] },
+    "happy":   { "path": "assets/states/idle", "fps": 30, "loop": false, "then": "idle", "durationMs": 2000,
+                 "motionChain": [{ "group": "TapBody", "delayMs": 1500 }, { "group": "Idle", "delayMs": 0 }],
+                 "expressions": ["F01", "F02"] },
+    "focused": { "path": "assets/states/idle", "fps": 30, "loop": true,  "motions": ["Idle", "TapBody"],
+                 "expression": "F05" },
+    "warning": { "path": "assets/states/idle", "fps": 30, "loop": true,  "motion": "TapBody",
+                 "expressions": ["F03", "F04"] },
+    "confused":{ "path": "assets/states/idle", "fps": 30, "loop": true,  "motion": "Idle",
+                 "expression": "F05" },
+    "sleepy":  { "path": "assets/states/idle", "fps": 30, "loop": true,  "motion": "Idle" }
   }
 }

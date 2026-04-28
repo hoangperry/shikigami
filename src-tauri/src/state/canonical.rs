@@ -5,6 +5,12 @@
 use serde::{Deserialize, Serialize};
 
 /// Primary emotion state. Mapped from structured event type.
+///
+/// We trimmed Shy/Flirty/Overloaded in v0.1 — no event mapping triggers
+/// them and no shipped character has motions for them either. Keep
+/// `Confused` because the per-tool mapping uses it for `Task`/`WebFetch`
+/// (deep reasoning / external lookup). Re-add when concrete signals
+/// justify them and at least one character ships matching art.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DominantState {
@@ -14,9 +20,6 @@ pub enum DominantState {
     Warning,
     Confused,
     Sleepy,
-    Shy,
-    Flirty,
-    Overloaded,
 }
 
 /// Optional texture modifier extracted from `event.text`. Composes with the

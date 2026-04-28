@@ -4,5 +4,5 @@ pub mod auth;
 pub mod schema;
 pub mod server;
 
-pub use schema::{EventPayload, EventSource, EventType};
-pub use server::{serve, AppState, StateEmitter};
+pub use schema::{EventPayload, EventSource, EventType, SayRequest, SpeakEvent};
+pub use server::{serve, AppState, SpeakEmitter, StateEmitter};

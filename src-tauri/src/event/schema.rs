@@ -27,6 +27,14 @@ pub struct EventPayload {
     pub text: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
+    /// Originating session identifier — lets the backend group / filter
+    /// events when multiple Claude Code tabs send to the same instance.
+    #[serde(default, rename = "sessionId", skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    /// Working directory of the session — used as a friendly label in
+    /// the session picker UI ("shikigami", "tts-server", …).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -71,4 +79,25 @@ impl EventPayload {
     pub fn severity_or_default(&self) -> Severity {
         self.severity.unwrap_or_default()
     }
+}
+
+/// Body of `POST /v1/say`. Synthesises `text` to audio via the configured
+/// TTS provider, then emits a `tts:speak` Tauri event with the audio path.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SayRequest {
+    pub text: String,
+    /// Optional override of the configured voice id.
+    #[serde(default)]
+    pub voice: Option<String>,
+}
+
+/// Payload emitted on the Tauri `tts:speak` event. Frontend uses `audio_url`
+/// (Tauri asset protocol URL) to drive Live2D `model.speak()`.
+#[derive(Clone, Debug, Serialize)]
+pub struct SpeakEvent {
+    pub audio_url: String,
+    pub mime: &'static str,
+    pub provider: &'static str,
+    pub text: String,
 }

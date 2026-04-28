@@ -5,10 +5,11 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Shikigami</title>
-    <!-- Live2D Cubism 5 Core runtime. Async so a slow CDN never blocks the
-         React root render. Live2DRenderer waits for window.Live2DCubismCore
-         at model-load time and falls back to sprite rendering on failure. -->
-    <script async src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+    <!-- Live2D Cubism 5 Core runtime. Bundled under public/live2d so the
+         Tauri WebView (no CDN allowed by default CSP) can always reach it
+         and so the app still works offline. Licensed via Live2D Free
+         Material License. Checksum in public/live2d/VERSION.txt. -->
+    <script src="/live2d/live2dcubismcore.min.js"></script>
     <style>
       html,
       body,

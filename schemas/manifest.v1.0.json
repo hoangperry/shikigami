@@ -172,6 +172,39 @@
           "type": "boolean",
           "default": true,
           "description": "Whether the renderer may crossfade OUT of this state. Instant-only states (e.g., extreme warning) can set this to false."
+        },
+        "motion": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "description": "Live2D motion group name (e.g. 'Idle', 'TapBody'). Sprite renderer ignores. `null` = no motion (e.g. static models like FILI). Overridden by `motions` and `motionChain` when those are non-empty."
+        },
+        "motions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Pool of Live2D motion group names. Renderer picks one at random per transition. Overrides `motion`."
+        },
+        "motionChain": {
+          "type": "array",
+          "description": "Sequential motion chain. Each step plays its group after waiting `delayMs` from the previous step. Overrides `motion` / `motions`.",
+          "items": {
+            "type": "object",
+            "required": ["group"],
+            "additionalProperties": false,
+            "properties": {
+              "group": { "type": "string", "minLength": 1 },
+              "delayMs": { "type": "integer", "minimum": 0, "maximum": 60000, "default": 0 }
+            }
+          }
+        },
+        "expression": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "description": "Single Cubism expression name to blend on top of motion (e.g. 'F01'). `null` = no expression overlay. Overridden by `expressions` when non-empty."
+        },
+        "expressions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Pool of expression names. Renderer picks one at random per transition. Overrides `expression`."
         }
       }
     }

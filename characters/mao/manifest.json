@@ -1,0 +1,22 @@
+{
+  "$schema": "https://shikigami.dev/schema/manifest/v1.0.json",
+  "schemaVersion": "1.0",
+  "id": "mao",
+  "name": "Mao (Live2D sample)",
+  "description": "Live2D Cubism sample character. Live2D Free Material License.",
+  "author": "Live2D Inc.",
+  "version": "1.0.0",
+  "license": "CC-BY-4.0",
+  "tags": ["live2d", "anime", "sample", "sfw"],
+  "renderer": "live2d",
+  "defaultState": "idle",
+  "states": {
+    "idle":    { "path": "assets/states/idle",    "fps": 30, "loop": true,  "motion": "Idle",    "expressions": ["F01", "F02"] },
+    "happy":   { "path": "assets/states/happy",   "fps": 30, "loop": false, "then": "idle", "durationMs": 2000,
+                 "motionChain": [{ "group": "TapBody", "delayMs": 1500 }, { "group": "Idle", "delayMs": 0 }],
+                 "expressions": ["F03", "F04"] },
+    "focused": { "path": "assets/states/focused", "fps": 30, "loop": true,  "motion": "Idle",    "expressions": ["F02", "F05"] },
+    "warning": { "path": "assets/states/warning", "fps": 30, "loop": true,  "motion": "TapBody", "expressions": ["F06", "F07"] },
+    "sleepy":  { "path": "assets/states/sleepy",  "fps": 30, "loop": true,  "motion": "Idle",    "expression":  "F08" }
+  }
+}

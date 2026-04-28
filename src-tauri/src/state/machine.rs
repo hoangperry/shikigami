@@ -44,15 +44,56 @@ fn map_event(event: &EventPayload) -> DominantState {
         (EventType::SessionIdleLong, _) => Sleepy,
         (EventType::SessionIdleShort, _) => Idle,
         (EventType::UserPrompt, _) => Focused,
-        (EventType::ToolStart, _) => Focused,
-        (EventType::ToolComplete, Some(0)) => Happy,
+        (EventType::ToolStart, _) => map_tool_start(event.tool.as_deref()),
+        (EventType::ToolComplete, Some(0)) => map_tool_complete(event.tool.as_deref()),
         (EventType::ToolComplete, Some(_)) => Warning,
-        (EventType::ToolComplete, None) => Happy, // assume success if not reported
+        (EventType::ToolComplete, None) => map_tool_complete(event.tool.as_deref()),
         (EventType::Error, _) => Warning,
         (EventType::DestructiveOpDetected, _) => Warning,
         (EventType::GitCommit, _) => Happy,
         (EventType::GitPush, _) => Happy,
         (EventType::AssistantMessage, _) => Idle,
+    }
+}
+
+/// Tool-aware dominant for `ToolStart`. Reading / scanning tools and deep
+/// reasoning tools (Task subagents, web fetches) get a distinct mood so
+/// the user can read intent at a glance — Hiyori "focuses" for code work
+/// and "thinks" for research / delegation work.
+///
+/// Characters that don't define every dominant fall back via the renderer's
+/// resolveAnimKey to their default state.
+fn map_tool_start(tool: Option<&str>) -> DominantState {
+    use DominantState::*;
+    match tool {
+        // Deep-reasoning / external lookups → "thinking" mood.
+        Some("Task") | Some("WebFetch") | Some("WebSearch") | Some("ToolSearch") => Confused,
+        // Read-only inspection → focused (default).
+        Some("Read") | Some("Grep") | Some("Glob") | Some("ListDir") => Focused,
+        // Writes / mutations → focused.
+        Some("Write") | Some("Edit") | Some("MultiEdit") | Some("NotebookEdit") => Focused,
+        // Shell — many things, but usually focused work.
+        Some("Bash") => Focused,
+        // Planning → happy little nod (TodoWrite means progress is being tracked).
+        Some("TodoWrite") | Some("TodoRead") => Happy,
+        // Subagent dispatch (Agent tool) → thinking deeply.
+        Some("Agent") => Confused,
+        // Default: focused.
+        _ => Focused,
+    }
+}
+
+/// Tool-aware dominant for `ToolComplete` (success path). Most tools just
+/// resolve to Happy; planning tools also Happy; long-running research
+/// completions get a "shy/relieved" reaction via texture extraction
+/// downstream.
+fn map_tool_complete(tool: Option<&str>) -> DominantState {
+    use DominantState::*;
+    match tool {
+        // Read-only inspection finishing → quiet idle nod (less hype).
+        Some("Read") | Some("Grep") | Some("Glob") | Some("ListDir") => Idle,
+        // Everything else: little happy beat.
+        _ => Happy,
     }
 }
 
@@ -63,9 +104,6 @@ fn base_duration(state: DominantState) -> u32 {
         Idle | Focused | Sleepy | Warning => 0, // loop states
         Happy => 1500,
         Confused => 2000,
-        Shy => 1000,
-        Flirty => 1500,
-        Overloaded => 3000,
     }
 }
 
@@ -98,6 +136,8 @@ mod tests {
             severity: sev,
             text: None,
             metadata: None,
+            session_id: None,
+            cwd: None,
         }
     }
 
@@ -146,5 +186,41 @@ mod tests {
         let s = resolve(&evt(EventType::ToolStart, None, None));
         assert_eq!(s.dominant, DominantState::Focused);
         assert_eq!(s.duration_ms, 0);
+    }
+
+    fn evt_with_tool(ty: EventType, tool: &str, exit: Option<i32>) -> EventPayload {
+        let mut e = evt(ty, exit, None);
+        e.tool = Some(tool.into());
+        e
+    }
+
+    #[test]
+    fn task_tool_start_is_confused() {
+        let s = resolve(&evt_with_tool(EventType::ToolStart, "Task", None));
+        assert_eq!(s.dominant, DominantState::Confused);
+    }
+
+    #[test]
+    fn web_fetch_start_is_confused() {
+        let s = resolve(&evt_with_tool(EventType::ToolStart, "WebFetch", None));
+        assert_eq!(s.dominant, DominantState::Confused);
+    }
+
+    #[test]
+    fn read_complete_falls_to_idle() {
+        let s = resolve(&evt_with_tool(EventType::ToolComplete, "Read", Some(0)));
+        assert_eq!(s.dominant, DominantState::Idle);
+    }
+
+    #[test]
+    fn todowrite_start_is_happy() {
+        let s = resolve(&evt_with_tool(EventType::ToolStart, "TodoWrite", None));
+        assert_eq!(s.dominant, DominantState::Happy);
+    }
+
+    #[test]
+    fn unknown_tool_defaults_focused() {
+        let s = resolve(&evt_with_tool(EventType::ToolStart, "NewMysteryTool", None));
+        assert_eq!(s.dominant, DominantState::Focused);
     }
 }

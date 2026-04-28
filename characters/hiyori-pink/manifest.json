@@ -1,0 +1,52 @@
+{
+  "$schema": "https://shikigami.dev/schema/manifest/v1.0.json",
+  "schemaVersion": "1.0",
+  "id": "hiyori-pink",
+  "name": "Hiyori (Live2D sample) \u00b7 pink",
+  "description": "Recolor variant (pink) of Live2D Cubism sample character. Ships under Live2D Free Material License.",
+  "author": "Live2D Inc.",
+  "version": "1.0.0",
+  "license": "CC-BY-4.0",
+  "tags": [
+    "live2d",
+    "anime",
+    "sample",
+    "sfw"
+  ],
+  "renderer": "live2d",
+  "defaultState": "idle",
+  "states": {
+    "idle": {
+      "path": "assets/states/idle",
+      "fps": 30,
+      "loop": true,
+      "motion": "Idle"
+    },
+    "happy": {
+      "path": "assets/states/idle",
+      "fps": 30,
+      "loop": false,
+      "then": "idle",
+      "durationMs": 2000,
+      "motion": "TapBody"
+    },
+    "focused": {
+      "path": "assets/states/idle",
+      "fps": 30,
+      "loop": true,
+      "motion": "Idle"
+    },
+    "warning": {
+      "path": "assets/states/idle",
+      "fps": 30,
+      "loop": true,
+      "motion": "TapBody"
+    },
+    "sleepy": {
+      "path": "assets/states/idle",
+      "fps": 30,
+      "loop": true,
+      "motion": "Idle"
+    }
+  }
+}
