@@ -25,8 +25,11 @@ Cleanup pass in Krita (transparency, line consistency)
 Export as frame_NN.png sequence
 ```
 
-This doc covers step 1. Step 2–4 are out of scope; tracked in
-[#28](https://github.com/hoangperry/shikigami/issues/28).
+This doc covers step 1. Step 2–4 (tweening + Krita cleanup + final
+`.shikigami` pack) are human-creative work that runs outside the
+issue tracker — feed the keyframes from §3 into your tween/cleanup
+pipeline of choice, then call `scripts/pack-shikigami.sh
+characters/linh` when the frame sequences are ready.
 
 ## 2. Universal prefix
 
