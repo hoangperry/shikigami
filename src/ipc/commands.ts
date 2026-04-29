@@ -80,7 +80,9 @@ export type StatePayload = {
   duration_ms: number | null;
   /** Absolute paths on disk. Convert via convertFileSrc() before rendering. */
   frames: string[];
-  textures: string[];
+  /** Texture variant name → frame paths. Renderer plays these when the
+   *  resolved animation key is `<state>_<texture-name>`. */
+  textures: Record<string, string[]>;
   /**
    * Live2D motion group name. Resolution priority on entry:
    *   motion_chain (non-empty) > motions (non-empty) > motion > state name.

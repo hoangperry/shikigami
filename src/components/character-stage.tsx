@@ -164,7 +164,7 @@ export function CharacterStage() {
                   then: null,
                   duration_ms: null,
                   frames: ["/hiyori/frame_00.model3.json"],
-                  textures: [],
+                  textures: {},
                   motion: s === "happy" || s === "warning" ? "TapBody" : "Idle",
                   motions: [],
                   motion_chain: [],

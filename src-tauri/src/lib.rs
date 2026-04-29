@@ -9,6 +9,7 @@
 //! Phase 2 will load `.shikigami` character packages and replace the debug
 //! panel with the PixiJS sprite renderer.
 
+pub mod capture;
 pub mod character;
 pub mod config;
 pub mod demo;
@@ -76,6 +77,12 @@ pub fn run() {
             if let Some(reg) = app.try_state::<Arc<CharacterRegistry>>() {
                 character::watcher::spawn(app.handle().clone(), reg.inner().clone());
             }
+
+            // Privacy: hide overlay when a screen-capture/share app is
+            // running (OBS, Loom, Zoom share, etc.). Honors
+            // `auto_hide_during_capture` setting; toggling takes effect
+            // on the next 3-second poll tick.
+            capture::spawn(app.handle().clone());
 
             if let Some(w) = app.get_webview_window("main") {
                 // Position + size are restored by tauri-plugin-window-state

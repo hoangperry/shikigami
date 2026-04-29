@@ -41,10 +41,7 @@ pub fn spawn<R: Runtime>(app: AppHandle<R>, registry: Arc<CharacterRegistry>) {
                 return;
             }
         };
-        if let Err(e) = debouncer
-            .watcher()
-            .watch(&dir, RecursiveMode::Recursive)
-        {
+        if let Err(e) = debouncer.watcher().watch(&dir, RecursiveMode::Recursive) {
             tracing::warn!("failed to watch {}: {e}", dir.display());
             return;
         }

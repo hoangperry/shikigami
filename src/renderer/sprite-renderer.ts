@@ -7,7 +7,7 @@
 
 import { Application, Assets, Sprite, Texture } from "pixi.js";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import type { ActiveCharacter, StatePayload } from "../ipc/commands";
+import type { ActiveCharacter } from "../ipc/commands";
 
 type LoadedAnimation = {
   stateKey: string;
@@ -74,15 +74,32 @@ export class SpriteRenderer {
     this.animations.clear();
 
     for (const [stateKey, state] of Object.entries(character.states)) {
-      const textures = await this.loadFrames(state);
+      // Base animation for the dominant state.
+      const baseTextures = await this.loadFrames(state.frames);
       this.animations.set(stateKey, {
         stateKey,
-        textures,
+        textures: baseTextures,
         fps: state.fps,
         loop: state.loop,
         then: state.then,
         durationMs: state.duration_ms,
       });
+
+      // Texture variants — registered as compound keys `<state>_<tex>`
+      // so resolveAnimKey can pick the variant when the state machine
+      // emits e.g. "happy_relieved". Falls back to the base on miss.
+      for (const [texName, framePaths] of Object.entries(state.textures ?? {})) {
+        if (!framePaths || framePaths.length === 0) continue;
+        const variantTextures = await this.loadFrames(framePaths);
+        this.animations.set(`${stateKey}_${texName}`, {
+          stateKey: `${stateKey}_${texName}`,
+          textures: variantTextures,
+          fps: state.fps,
+          loop: state.loop,
+          then: state.then,
+          durationMs: state.duration_ms,
+        });
+      }
     }
     this.transitionTo(character.default_state);
   }
@@ -169,8 +186,8 @@ export class SpriteRenderer {
     }
   }
 
-  private async loadFrames(state: StatePayload): Promise<Texture[]> {
-    const urls = state.frames.map((p) => convertFileSrc(p));
+  private async loadFrames(framePaths: string[]): Promise<Texture[]> {
+    const urls = framePaths.map((p) => convertFileSrc(p));
     const textures = await Promise.all(
       urls.map(async (u) => (await Assets.load(u)) as Texture),
     );

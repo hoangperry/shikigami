@@ -96,6 +96,32 @@ impl LoadedCharacter {
         let state_dir = self.root.join(&state.path);
         collect_frame_files(&state_dir)
     }
+
+    /// Resolve every texture variant declared on `state_name` to its
+    /// absolute frame paths. Used by the registry to expand
+    /// `manifest.states[*].textures` (path-only entries) into full
+    /// per-variant frame lists for the renderer. Skips variants whose
+    /// directory is missing on disk.
+    pub fn texture_variant_frames(
+        &self,
+        state_name: &str,
+    ) -> std::collections::BTreeMap<String, Vec<PathBuf>> {
+        let mut out = std::collections::BTreeMap::new();
+        let Some(state) = self.manifest.states.get(state_name) else {
+            return out;
+        };
+        for (tex_name, tex_path) in &state.textures {
+            let dir = self.root.join(tex_path);
+            if !dir.is_dir() {
+                continue;
+            }
+            let frames = collect_frame_files(&dir);
+            if !frames.is_empty() {
+                out.insert(tex_name.clone(), frames);
+            }
+        }
+        out
+    }
 }
 
 fn collect_frame_files(dir: &Path) -> Vec<PathBuf> {

@@ -129,7 +129,19 @@ impl CharacterRegistry {
                                 .into_iter()
                                 .map(|p| p.display().to_string())
                                 .collect(),
-                            textures: s.textures.keys().cloned().collect(),
+                            textures: ch
+                                .texture_variant_frames(k)
+                                .into_iter()
+                                .map(|(name, paths)| {
+                                    (
+                                        name,
+                                        paths
+                                            .into_iter()
+                                            .map(|p| p.display().to_string())
+                                            .collect(),
+                                    )
+                                })
+                                .collect(),
                             motion: s.motion.clone(),
                             motions: s.motions.clone(),
                             motion_chain: s.motion_chain.clone(),
@@ -192,8 +204,10 @@ pub struct StatePayload {
     /// Absolute paths to each frame file. Frontend wraps them in Tauri asset
     /// protocol URLs (`convertFileSrc`) before feeding PIXI.
     pub frames: Vec<String>,
-    /// Names of optional texture variants available for this state.
-    pub textures: Vec<String>,
+    /// Texture variants for this state. Maps variant name (e.g. "relieved")
+    /// to its absolute frame paths. Renderer composes the final animation
+    /// key as `<state>_<texture>` and looks up frames here when available.
+    pub textures: BTreeMap<String, Vec<String>>,
     /// Live2D motion group name to trigger when entering this state. None for
     /// sprite characters or Live2D states that should not animate explicitly.
     pub motion: Option<String>,
