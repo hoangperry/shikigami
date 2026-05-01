@@ -119,10 +119,12 @@ jobs:
             See the full README for hook installation + character setup.
 
   windows-msi:
-    # Builds an unsigned `.msi` (WiX) + `.exe` (NSIS) for x64 Windows.
-    # Code signing is intentionally skipped at this milestone — an EV cert
-    # costs ~$400/yr and the v0.1 alpha audience can install via the
-    # SmartScreen "More info → Run anyway" path documented in the README.
+    # Builds `.msi` (WiX) + `.exe` (NSIS) for x64 Windows.
+    # Code-signing is opt-in via the WINDOWS_CERTIFICATE secret — when
+    # absent we ship an unsigned binary (alpha-acceptable; SmartScreen
+    # warning per the README). When present, the import step below
+    # provisions the cert and Tauri's bundler invokes signtool. See
+    # docs/WINDOWS-SIGNING.md for the full procurement + setup runbook.
     name: Windows MSI (x64)
     runs-on: windows-latest
     steps:
@@ -148,10 +150,44 @@ jobs:
       - name: Install frontend deps
         run: pnpm install --frozen-lockfile
 
-      - name: Build MSI + NSIS bundles (unsigned)
+      # Optional Windows code-sign step: only runs when the EV cert
+      # secrets are present. Without them the build still produces a
+      # functional (but unsigned) installer + SmartScreen warning. See
+      # docs/WINDOWS-SIGNING.md for the full procurement + setup runbook.
+      - name: Import Windows signing certificate
+        if: env.WINDOWS_CERTIFICATE != ''
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        shell: pwsh
+        run: |
+          # Decode the base64 .pfx blob from the secret to a temp file,
+          # import it into the runner's CurrentUser cert store. signtool
+          # picks it up by thumbprint at bundle time. The thumbprint is
+          # written to GITHUB_ENV so the next step can pass it to Tauri.
+          $bytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $pfx = Join-Path $env:RUNNER_TEMP 'cert.pfx'
+          [IO.File]::WriteAllBytes($pfx, $bytes)
+          $sec = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $sec
+          Remove-Item $pfx -Force
+          "WINDOWS_CERT_THUMBPRINT=$($cert.Thumbprint)" | Out-File -Append $env:GITHUB_ENV
+          Write-Host "Imported cert thumbprint: $($cert.Thumbprint)"
+
+      - name: Build MSI + NSIS bundles
         # Tauri picks the right targets per platform from `tauri.conf.json`
-        # `bundle.targets` — on Windows that's `msi` + `nsis`. Without
-        # signing secrets the artifacts are unsigned but functional.
+        # `bundle.targets` — on Windows that's `msi` + `nsis`. When the
+        # signing env vars below are populated Tauri auto-invokes
+        # signtool with the imported cert; otherwise it produces unsigned
+        # but functional artifacts.
+        env:
+          # Tauri reads TAURI_SIGNING_PRIVATE_KEY for app updater signing
+          # (separate from code-signing) — left null intentionally.
+          # For code-signing, Tauri reads bundle.windows.certificateThumbprint
+          # from tauri.conf.json. Override via this env var when we have
+          # one without committing it to source.
+          TAURI_BUNDLE_WINDOWS_CERTIFICATE_THUMBPRINT: ${{ env.WINDOWS_CERT_THUMBPRINT }}
+          TAURI_BUNDLE_WINDOWS_TIMESTAMP_URL: http://timestamp.digicert.com
         run: pnpm tauri:build
 
       - name: Locate artifacts

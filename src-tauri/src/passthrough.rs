@@ -2,9 +2,10 @@
 //! transparent surroundings pass clicks through to whatever app sits
 //! below the overlay (terminal, browser, etc).
 //!
-//! macOS / Tauri don't ship per-pixel hit-testing for `NSWindow`, and
-//! `set_ignore_cursor_events()` is all-or-nothing. We work around it with
-//! a polling loop:
+//! Tauri's `set_ignore_cursor_events()` is all-or-nothing on every
+//! supported platform — there is no per-pixel hit-testing primitive on
+//! macOS (`NSWindow`), Windows (`WS_EX_TRANSPARENT`), or Linux (input
+//! shape regions). We work around it with a polling loop:
 //!
 //!   1. Frontend computes the character's screen-space AABB after every
 //!      fit() and pushes it via `set_character_bbox` (Tauri command).
@@ -12,8 +13,20 @@
 //!      flips `set_ignore_cursor_events` based on whether the cursor is
 //!      inside the AABB.
 //!
+//! The flip itself is delegated to Tauri's cross-platform abstraction:
+//! `NSWindow.ignoresMouseEvents` on macOS, `WS_EX_TRANSPARENT` toggling
+//! on Windows, X11/Wayland input regions on Linux. Polling logic is
+//! identical on every platform — no `cfg(target_os)` branches needed.
+//!
 //! Trade-off: a 16ms pre-click latency (one poll tick) — imperceptible
 //! for drag interactions which dominate the use case.
+//!
+//! Runtime verification status:
+//!   - macOS: verified end-to-end by the maintainer.
+//!   - Windows: code compiles + tests run on windows-latest CI but the
+//!     transparent-overlay end-to-end behaviour is unverified on real
+//!     hardware. Tracked in GitHub issue #29.
+//!   - Linux: not yet ported (v0.3 milestone).
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
