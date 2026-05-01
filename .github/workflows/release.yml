@@ -236,3 +236,112 @@ jobs:
             Claude Code hook command on Windows.
 
             Checksums in `SHA256SUMS-windows.txt`.
+
+  linux-bundle:
+    # Builds .deb / .rpm / .AppImage on ubuntu-latest. No code-signing
+    # equivalent on Linux at the distro level — distros rely on package
+    # manager + repo trust instead. AppImage authors sometimes sign with
+    # gpg / zsync; we skip both for the alpha milestone.
+    name: Linux bundles (x86_64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      # GTK + WebKit2GTK are runtime + build deps. libfuse2 is needed
+      # for AppImage assembly. rpm is needed because Tauri shells out to
+      # `rpmbuild` for .rpm; it isn't on ubuntu-latest by default.
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libsoup-3.0-dev \
+            libfuse2 \
+            rpm \
+            patchelf \
+            build-essential \
+            curl \
+            wget \
+            file
+
+      - name: Install frontend deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Build .deb / .rpm / .AppImage
+        # Tauri picks the Linux subset of bundle.targets — deb, rpm,
+        # appimage. None require signing infrastructure.
+        run: pnpm tauri:build
+
+      - name: Locate artifacts
+        id: artifacts
+        run: |
+          DEB=$(ls src-tauri/target/release/bundle/deb/*.deb | head -1)
+          RPM=$(ls src-tauri/target/release/bundle/rpm/*.rpm | head -1)
+          APPIMAGE=$(ls src-tauri/target/release/bundle/appimage/*.AppImage | head -1)
+          echo "deb=$DEB" >> "$GITHUB_OUTPUT"
+          echo "rpm=$RPM" >> "$GITHUB_OUTPUT"
+          echo "appimage=$APPIMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Compute checksums
+        run: |
+          sha256sum \
+            "${{ steps.artifacts.outputs.deb }}" \
+            "${{ steps.artifacts.outputs.rpm }}" \
+            "${{ steps.artifacts.outputs.appimage }}" \
+            > SHA256SUMS-linux.txt
+
+      - name: Upload Linux assets to existing draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: false
+          files: |
+            ${{ steps.artifacts.outputs.deb }}
+            ${{ steps.artifacts.outputs.rpm }}
+            ${{ steps.artifacts.outputs.appimage }}
+            SHA256SUMS-linux.txt
+          append_body: true
+          body: |
+
+            ---
+
+            ## Linux install (alpha — Wayland transparency unverified)
+
+            Pick the format your distro prefers:
+            - `shikigami_*_amd64.deb` — Debian / Ubuntu (`sudo dpkg -i shikigami_*.deb && sudo apt-get install -f`)
+            - `shikigami-*.x86_64.rpm` — Fedora / RHEL / openSUSE (`sudo rpm -i shikigami-*.rpm`)
+            - `shikigami_*_amd64.AppImage` — distro-agnostic (`chmod +x shikigami_*.AppImage && ./shikigami_*.AppImage`)
+
+            Hook setup is identical to macOS: `python3 scripts/install-hook.py install`.
+
+            ⚠️ **Known gaps in the v0.1 alpha Linux build:**
+            - Transparent always-on-top overlay is **untested on real
+              Linux desktops**. X11 with a compositor (Xfwm, Mutter, KWin)
+              is expected to work; **Wayland needs verification** — some
+              compositors (older GNOME) lack the protocols Tauri relies on.
+            - `alwaysOnTop` semantics differ between WM/compositors; may
+              fall back to "above" hint instead of true topmost.
+            - Click-through (`set_ignore_cursor_events`) requires the
+              compositor to honour input shapes. Untested.
+
+            Checksums in `SHA256SUMS-linux.txt`.

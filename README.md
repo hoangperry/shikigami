@@ -3,7 +3,7 @@
 > A summoned desktop companion that reflects your AI agent's real-time state through a reactive 2D character, displayed as a transparent Picture-in-Picture overlay.
 
 **Status**: `v0.1.0-alpha` · planning complete + event engine shipped · character renderer in progress
-**Platforms**: macOS (Apple Silicon + Intel, primary) · Windows (alpha — unsigned, transparency unverified) · Linux in v0.3
+**Platforms**: macOS (Apple Silicon + Intel, primary) · Windows (alpha — unsigned, transparency unverified) · Linux (alpha — deb/rpm/AppImage, Wayland transparency unverified)
 **Current integration**: Claude Code (Cursor / Windsurf / ChatGPT in v0.4+)
 
 ---
@@ -142,6 +142,49 @@ For now Windows is best-effort: macOS is the supported alpha target.
 
 ---
 
+## Installing on Linux (alpha)
+
+Linux ships three formats from the same release tag — pick whatever
+your distro prefers:
+
+```bash
+# Debian / Ubuntu
+sudo dpkg -i shikigami_*_amd64.deb
+sudo apt-get install -f          # pulls in any missing GTK / WebKit deps
+
+# Fedora / RHEL / openSUSE
+sudo rpm -i shikigami-*.x86_64.rpm
+
+# Distro-agnostic (no install needed)
+chmod +x shikigami_*_amd64.AppImage
+./shikigami_*_amd64.AppImage
+```
+
+Hook setup is identical to macOS:
+
+```bash
+python3 scripts/install-hook.py install
+python3 scripts/install-hook.py doctor
+```
+
+⚠️ **Known gaps in the v0.1 alpha Linux build** (contributions welcome):
+
+- Transparent always-on-top overlay is **untested on real Linux
+  desktops**. X11 with a compositor (Xfwm, Mutter, KWin) is expected
+  to work; **Wayland needs verification** — some compositors (older
+  GNOME, sway without the right protocols) lack the surface APIs
+  Tauri relies on.
+- `alwaysOnTop` semantics differ across compositors; behaviour may
+  degrade to a regular "above" hint instead of a true topmost layer.
+- Click-through requires compositor input-shape support. Tauri's
+  abstraction works on X11 + most Wayland compositors, but no
+  hardware run has confirmed it for Shikigami yet.
+
+Linux is best-effort at this milestone alongside Windows; macOS
+remains the supported alpha target.
+
+---
+
 ## Building a signed .dmg yourself
 
 If you have your own Apple signing identity (`security find-identity -v
@@ -237,7 +280,7 @@ Minimum viable character: `idle` + `happy` states. Missing states fall back grac
 | **Phase 2** | 🛠️ In progress | Character loader, PixiJS sprite renderer |
 | **Phase 3** | ✅ Shipped | Settings UI, speech bubble, system tray, .dmg release |
 | **v0.2 (Windows scaffolding)** | 🛠️ Alpha | MSI/NSIS bundles, CI matrix, hook script — overlay & signing TBD |
-| **v0.3 (Linux)** | ⏳ Planned | Tauri Linux build + AppImage / .deb / .rpm |
+| **v0.3 (Linux scaffolding)** | 🛠️ Alpha | .deb / .rpm / .AppImage bundles, CI release job — Wayland transparency TBD |
 | **v0.4+ (adapters)** | ⏳ Planned | Cursor, Windsurf, VMC export |
 
 Progress tracker: [GitHub Issues](https://github.com/hoangperry/shikigami/issues).
