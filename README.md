@@ -281,7 +281,7 @@ Minimum viable character: `idle` + `happy` states. Missing states fall back grac
 | **Phase 3** | ✅ Shipped | Settings UI, speech bubble, system tray, .dmg release |
 | **v0.2 (Windows scaffolding)** | 🛠️ Alpha | MSI/NSIS bundles, CI matrix, hook script — overlay & signing TBD |
 | **v0.3 (Linux scaffolding)** | 🛠️ Alpha | .deb / .rpm / .AppImage bundles, CI release job — Wayland transparency TBD |
-| **v0.4+ (adapters)** | ⏳ Planned | Cursor, Windsurf, VMC export |
+| **v0.4+ (adapters)** | 🔬 Researched | Codex CLI (low effort, [#32](https://github.com/hoangperry/shikigami/issues/32)) · Cursor ([#33](https://github.com/hoangperry/shikigami/issues/33)) · Windsurf ([#34](https://github.com/hoangperry/shikigami/issues/34)) · Copilot Chat ([#35](https://github.com/hoangperry/shikigami/issues/35)) — survey at `plans/reports/researcher-260502-0814-ai-tool-adapter-survey.md` |
 
 Progress tracker: [GitHub Issues](https://github.com/hoangperry/shikigami/issues).
 
