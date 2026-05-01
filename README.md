@@ -3,7 +3,7 @@
 > A summoned desktop companion that reflects your AI agent's real-time state through a reactive 2D character, displayed as a transparent Picture-in-Picture overlay.
 
 **Status**: `v0.1.0-alpha` · planning complete + event engine shipped · character renderer in progress
-**Platforms**: macOS (Apple Silicon + Intel) · Windows and Linux in v0.2 / v0.3
+**Platforms**: macOS (Apple Silicon + Intel, primary) · Windows (alpha — unsigned, transparency unverified) · Linux in v0.3
 **Current integration**: Claude Code (Cursor / Windsurf / ChatGPT in v0.4+)
 
 ---
@@ -108,6 +108,40 @@ codesign -dv /Applications/Shikigami.app
 
 ---
 
+## Installing on Windows (alpha)
+
+The Windows build ships as **`.msi`** (system-wide, WiX) and **`.exe`**
+(per-user, NSIS) installers from the same release tag as the macOS DMG.
+At this milestone the Windows binary is **unsigned** — there is no
+$400/yr EV cert backing it yet — so SmartScreen will warn on first
+launch.
+
+```powershell
+# 1. Download Shikigami_*_x64-setup.exe (NSIS) or .msi from the Release page
+# 2. Run it. SmartScreen warning → click "More info" → "Run anyway".
+# 3. Install Python 3 if you don't have it (Claude Code already requires it)
+# 4. Register the hook (uses python on PATH, not python3):
+python scripts\install-hook.py install
+
+# 5. Verify
+python scripts\install-hook.py doctor
+```
+
+⚠️ **Known gaps in the v0.1 alpha Windows build** (tracked in GitHub
+Issues — contributions very welcome):
+- Transparent always-on-top overlay is **untested on real Windows
+  hardware** — Tauri uses WebView2 which has documented quirks around
+  DWM composition and per-monitor DPI. May render with a black or
+  opaque background until a contributor verifies + tunes.
+- No code signing → SmartScreen warning on every fresh install.
+- Hook bridge uses the same `shikigami-hook.py` as macOS; a
+  PowerShell-native wrapper (`hooks/shikigami-hook.ps1`) ships
+  alongside it for users who prefer registering it directly.
+
+For now Windows is best-effort: macOS is the supported alpha target.
+
+---
+
 ## Building a signed .dmg yourself
 
 If you have your own Apple signing identity (`security find-identity -v
@@ -201,11 +235,12 @@ Minimum viable character: `idle` + `happy` states. Missing states fall back grac
 | **Phase 0** | ✅ Foundation | Tauri scaffold, transparent overlay, CI workflow |
 | **Phase 1** | ✅ Event engine | HTTP server + state machine + texture fusion + hook bridge |
 | **Phase 2** | 🛠️ In progress | Character loader, PixiJS sprite renderer |
-| **Phase 3** | ⏳ Planned | Settings UI, speech bubble, system tray |
-| **v0.2 (Windows)** | ⏳ Planned | Cross-platform port |
-| **v0.3 (Linux)** | ⏳ Planned | Cross-platform port |
+| **Phase 3** | ✅ Shipped | Settings UI, speech bubble, system tray, .dmg release |
+| **v0.2 (Windows scaffolding)** | 🛠️ Alpha | MSI/NSIS bundles, CI matrix, hook script — overlay & signing TBD |
+| **v0.3 (Linux)** | ⏳ Planned | Tauri Linux build + AppImage / .deb / .rpm |
+| **v0.4+ (adapters)** | ⏳ Planned | Cursor, Windsurf, VMC export |
 
-Progress tracker: [GitHub Issues](https://github.com/hoangperry/shikigami/issues) (28 active issues).
+Progress tracker: [GitHub Issues](https://github.com/hoangperry/shikigami/issues).
 
 ---
 

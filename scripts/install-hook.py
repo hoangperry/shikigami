@@ -117,7 +117,13 @@ def remove_hook_event(cfg: dict, event: str) -> bool:
 def cmd_install() -> None:
     if not HOOK_SCRIPT.exists():
         die(f"hook script missing: {HOOK_SCRIPT}")
-    command = f"python3 {HOOK_SCRIPT}"
+    # Windows ships `python` (not `python3`) on PATH; macOS / Linux ship
+    # `python3`. Use the right symbol for the host so Claude Code can
+    # actually exec the hook command after install. Quote the path so a
+    # space in the user's home directory (common on Windows) doesn't
+    # split the command at shell-execution time.
+    py = "python" if sys.platform == "win32" else "python3"
+    command = f'{py} "{HOOK_SCRIPT}"'
 
     cfg = load_settings()
     changed = False
