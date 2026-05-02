@@ -4,7 +4,7 @@
 
 **Status**: `v0.1.0-alpha` · planning complete + event engine shipped · character renderer in progress
 **Platforms**: macOS (Apple Silicon + Intel, primary) · Windows (alpha — unsigned, transparency unverified) · Linux (alpha — deb/rpm/AppImage, Wayland transparency unverified)
-**Current integration**: Claude Code (Cursor / Windsurf / ChatGPT in v0.4+)
+**Current integration**: Claude Code (primary) · Codex CLI (alpha, shared bridge) · Cursor / Windsurf / Copilot Chat tracked in v0.4 milestone
 
 ---
 
@@ -66,6 +66,29 @@ Uninstall hooks:
 ```bash
 python3 scripts/install-hook.py uninstall
 ```
+
+### Codex CLI (alpha)
+
+OpenAI's Codex CLI ships an identical hook delivery model to Claude
+Code, so the same `hooks/shikigami-hook.py` script handles both — only
+the EventPayload `source` field changes. Add this snippet to
+`~/.codex/config.toml` (replace the absolute path with your clone):
+
+```toml
+[hooks]
+PreToolUse       = "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source codex"
+PostToolUse      = "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source codex"
+UserPromptSubmit = "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source codex"
+Stop             = "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source codex"
+SessionStart     = "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source codex"
+PermissionRequest = "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source codex"
+```
+
+`PermissionRequest` is Codex-only; it maps to a warning state so the
+character signals "agent waiting on your approval" rather than looking
+idle while a permission dialog is open. Auto-installer for the Codex
+TOML config is tracked but deferred (KISS — manual paste is faster
+than introducing a TOML write dependency).
 
 ---
 

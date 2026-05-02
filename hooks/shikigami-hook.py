@@ -1,17 +1,27 @@
 #!/usr/bin/env python3
 """
-shikigami-hook — Claude Code hook → Shikigami event bridge.
+shikigami-hook — AI coding tool hook → Shikigami event bridge.
 
-Reads the Claude Code hook payload from stdin, transforms it into a
-Shikigami EventPayload (schemas/event.v1.0.json), and POSTs to the local
-HTTP event server. Never blocks Claude Code; all failures are swallowed
-silently (opt-in trace via SHIKIGAMI_DEBUG=1).
+Reads a hook payload from stdin (Claude Code or Codex CLI — both ship
+near-identical schemas), transforms it into a Shikigami EventPayload
+(schemas/event.v1.0.json), and POSTs to the local HTTP event server.
+Never blocks the AI tool; all failures are swallowed silently (opt-in
+trace via SHIKIGAMI_DEBUG=1).
 
 Usage:
-    echo "$CLAUDE_CODE_HOOK_JSON" | shikigami-hook.py
+    echo "$HOOK_JSON" | shikigami-hook.py                    # default: claude-code
+    echo "$HOOK_JSON" | shikigami-hook.py --source codex     # OpenAI Codex CLI
+
+The `--source` flag controls only the EventPayload `source` field —
+both tools deliver the same event names (PreToolUse / PostToolUse /
+UserPromptSubmit / Stop / SessionStart) on the same JSON structure,
+so the transform logic is shared. Codex adds `PermissionRequest`
+which maps to a warning-severity event so Hiyori reacts to approval
+prompts; Claude Code never emits this name.
 
 Claude Code `settings.json` wires this in per hook event; see
-`scripts/install-hook.py` for automated installation.
+`scripts/install-hook.py` for automated installation. For Codex, see
+the README install snippet (TOML config in ~/.codex/config.toml).
 """
 from __future__ import annotations
 
@@ -65,21 +75,30 @@ def is_destructive(command: str) -> bool:
     return any(p.search(command) for p in DESTRUCTIVE_PATTERNS)
 
 
-def transform(cc_event: dict) -> dict | None:
-    """Transform a Claude Code hook payload into Shikigami EventPayload v1.0.
-    Returns None when the event should be skipped (e.g., unknown hook name).
+def transform(cc_event: dict, source: str = "claude-code") -> dict | None:
+    """Transform an upstream hook payload into Shikigami EventPayload v1.0.
+
+    The same transform handles Claude Code and Codex CLI because both
+    tools converged on identical hook event names and JSON structure
+    (see https://developers.openai.com/codex/hooks vs Claude Code's
+    settings.json hook spec). The `source` arg becomes the EventPayload
+    `source` field so the state machine can apply tool-specific scaling
+    if it ever needs to — today it's purely informational.
+
+    Returns None when the event should be skipped (e.g., unknown hook
+    name).
     """
     hook_name = cc_event.get("hook_event_name") or cc_event.get("hook") or ""
     tool_name = cc_event.get("tool_name")
     tool_input = cc_event.get("tool_input") or {}
     tool_response = cc_event.get("tool_response") or {}
     # Forward identifiers so the backend can group / filter events by
-    # session — lets the user pick which Claude Code tabs Hiyori reacts
-    # to when several are running simultaneously.
+    # session — lets the user pick which AI-tool tabs Hiyori reacts to
+    # when several are running simultaneously.
     session_id = cc_event.get("session_id")
     cwd = cc_event.get("cwd")
 
-    payload: dict = {"schemaVersion": "1.0", "source": "claude-code"}
+    payload: dict = {"schemaVersion": "1.0", "source": source}
     if isinstance(session_id, str) and session_id:
         payload["sessionId"] = session_id
     if isinstance(cwd, str) and cwd:
@@ -146,6 +165,20 @@ def transform(cc_event: dict) -> dict | None:
     elif hook_name == "Notification":
         payload.update({
             "type": "error",
+            "severity": "warning",
+            "text": str(cc_event.get("message", ""))[:512],
+            "metadata": {"hook": hook_name},
+        })
+
+    elif hook_name == "PermissionRequest":
+        # Codex-only: user is being asked to approve a tool action. Map
+        # to a warning state so Hiyori signals "agent is waiting on you"
+        # rather than letting it look idle while permission is pending.
+        # Claude Code never emits this name; the branch is unreachable
+        # for source="claude-code" and that's fine.
+        payload.update({
+            "type": "permission_request",
+            "tool": tool_name,
             "severity": "warning",
             "text": str(cc_event.get("message", ""))[:512],
             "metadata": {"hook": hook_name},
@@ -285,7 +318,21 @@ def post_say(text: str, token: str, base_url: str) -> None:
         log(f"unexpected say: {e}")
 
 
+def parse_source(argv: list[str]) -> str:
+    """Tiny argparse stand-in — keeps the script stdlib-only with no
+    argparse import overhead on the hot path. Accepts `--source <name>`
+    or `--source=<name>`. Defaults to claude-code for backwards compat.
+    """
+    for i, a in enumerate(argv):
+        if a == "--source" and i + 1 < len(argv):
+            return argv[i + 1]
+        if a.startswith("--source="):
+            return a.split("=", 1)[1]
+    return "claude-code"
+
+
 def main() -> int:
+    source = parse_source(sys.argv[1:])
     try:
         raw = sys.stdin.read()
         if not raw.strip():
@@ -296,7 +343,7 @@ def main() -> int:
         log(f"bad JSON stdin: {e}")
         return 0
 
-    payload = transform(cc_event)
+    payload = transform(cc_event, source=source)
     if payload is None:
         return 0
 

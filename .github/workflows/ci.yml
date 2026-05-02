@@ -172,7 +172,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Transform simulation
+      - name: Transform simulation (claude-code source)
         run: |
           set -e
           # tool_start
@@ -183,6 +183,20 @@ jobs:
           out=$(echo '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/foo"}}' \
             | SHIKIGAMI_DEBUG=1 python3 hooks/shikigami-hook.py 2>&1 || true)
           echo "$out"
+
+      - name: Transform simulation (codex source)
+        run: |
+          set -e
+          # Codex CLI uses identical event names + payload shape, so the
+          # only thing that should differ in the resulting EventPayload
+          # is the `source` field. Smoke-test the --source flag end-to-end.
+          echo '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ls"}}' \
+            | SHIKIGAMI_DEBUG=1 python3 hooks/shikigami-hook.py --source codex || true
+
+          # Codex-only PermissionRequest event maps to a warning-severity
+          # event so Hiyori signals "agent waiting on you".
+          echo '{"hook_event_name":"PermissionRequest","tool_name":"Bash","message":"allow rm?"}' \
+            | SHIKIGAMI_DEBUG=1 python3 hooks/shikigami-hook.py --source codex || true
 
       - name: install-hook syntax check
         run: python3 -c "import ast; ast.parse(open('scripts/install-hook.py').read())"
