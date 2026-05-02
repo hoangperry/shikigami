@@ -219,6 +219,28 @@ jobs:
           echo '{"hook_event_name":"afterMCPExecution"}' \
             | SHIKIGAMI_DEBUG=1 python3 hooks/shikigami-hook.py --source cursor || true
 
+      - name: Transform simulation (windsurf source)
+        run: |
+          set -e
+          # Windsurf splits tool calls by TYPE (pre_run_command vs
+          # pre_read_code vs pre_write_code vs pre_mcp_tool_use) and
+          # nests data under a tool_info object; normalize_windsurf()
+          # flattens to the Claude shape. Smoke-test the four most
+          # impactful event types: shell command, user prompt, cascade
+          # response (Stop equivalent), and an unknown event.
+          echo '{"hook_event_name":"pre_run_command","trajectory_id":"t","tool_info":{"command_line":"ls","cwd":"/tmp"}}' \
+            | SHIKIGAMI_DEBUG=1 python3 hooks/shikigami-hook.py --source windsurf || true
+
+          echo '{"hook_event_name":"pre_user_prompt","tool_info":{"user_prompt":"fix bug"}}' \
+            | SHIKIGAMI_DEBUG=1 python3 hooks/shikigami-hook.py --source windsurf || true
+
+          echo '{"hook_event_name":"post_cascade_response","tool_info":{"response":"done"}}' \
+            | SHIKIGAMI_DEBUG=1 python3 hooks/shikigami-hook.py --source windsurf || true
+
+          # Unknown Windsurf event — should silently skip
+          echo '{"hook_event_name":"future_event_we_dont_handle"}' \
+            | SHIKIGAMI_DEBUG=1 python3 hooks/shikigami-hook.py --source windsurf || true
+
       - name: install-hook syntax check
         run: python3 -c "import ast; ast.parse(open('scripts/install-hook.py').read())"
 

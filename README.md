@@ -4,7 +4,7 @@
 
 **Status**: `v0.1.0-alpha` · planning complete + event engine shipped · character renderer in progress
 **Platforms**: macOS (Apple Silicon + Intel, primary) · Windows (alpha — unsigned, transparency unverified) · Linux (alpha — deb/rpm/AppImage, Wayland transparency unverified)
-**Current integration**: Claude Code (primary) · Codex CLI (alpha, shared bridge) · Cursor (alpha, 5-event minimal) · Windsurf / Copilot Chat tracked in v0.4 milestone
+**Current integration**: Claude Code (primary) · Codex CLI (alpha) · Cursor (alpha, 5-event minimal) · Windsurf (alpha, schema-derived from docs — untested against live payloads) · Copilot Chat tracked in v0.4 milestone
 
 ---
 
@@ -119,6 +119,47 @@ Cursor field names differ slightly from Claude Code's (`conversation_id`
 instead of `session_id`, `workspace_roots[0]` instead of `cwd`); the
 script's `normalize_cursor()` rewrites them at the edge so the rest
 of the pipeline stays source-agnostic.
+
+### Windsurf (alpha — schema-derived from docs, untested against live payloads)
+
+Windsurf's [Cascade Hooks](https://docs.windsurf.com/windsurf/cascade/hooks)
+ship 12 events split by tool type (`pre_run_command`, `pre_read_code`,
+`pre_write_code`, `pre_mcp_tool_use`, `pre_user_prompt`,
+`post_cascade_response`, etc.) with a nested `tool_info` payload.
+`normalize_windsurf()` flattens these onto the Claude shape so the rest
+of the bridge stays source-agnostic. We map the 11 events that fit
+Shikigami's existing taxonomy.
+
+⚠️ **Status**: this bridge was implemented from documentation alone —
+no payload samples from a live Windsurf session have been used to
+validate field names. If you use Windsurf and notice events being
+silently dropped or fields misnamed, please file an issue.
+
+Add to `~/.codeium/windsurf/hooks.json` (or `.windsurf/hooks.json` per
+project, or the system path documented at the link above):
+
+```json
+{
+  "hooks": {
+    "pre_user_prompt":     [{ "command": "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source windsurf" }],
+    "pre_run_command":     [{ "command": "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source windsurf" }],
+    "post_run_command":    [{ "command": "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source windsurf" }],
+    "pre_read_code":       [{ "command": "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source windsurf" }],
+    "post_read_code":      [{ "command": "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source windsurf" }],
+    "pre_write_code":      [{ "command": "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source windsurf" }],
+    "post_write_code":     [{ "command": "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source windsurf" }],
+    "pre_mcp_tool_use":    [{ "command": "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source windsurf" }],
+    "post_mcp_tool_use":   [{ "command": "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source windsurf" }],
+    "post_cascade_response":[{ "command": "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source windsurf" }],
+    "post_setup_worktree": [{ "command": "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source windsurf" }]
+  }
+}
+```
+
+Want to help validate? Register `hooks/shikigami-windsurf-dumper.py`
+alongside (or instead of) the bridge — it captures raw payloads to
+`~/.shikigami/windsurf-payloads.jsonl` so we can compare against the
+docs-derived schema. Upload to issue [#34](https://github.com/hoangperry/shikigami/issues/34).
 
 ---
 

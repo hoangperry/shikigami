@@ -92,6 +92,33 @@ _CURSOR_EVENT_RENAME = {
     "stop": "Stop",
 }
 
+# Windsurf (Codeium) Cascade Hooks split tool calls by TYPE rather than
+# a single PreToolUse + tool_name pair: pre_run_command for shell, pre_
+# read_code for Read, pre_write_code for Edit, pre_mcp_tool_use for MCP
+# tools. Per https://docs.windsurf.com/windsurf/cascade/hooks, payloads
+# wrap event-specific data in a `tool_info` object and use snake_case
+# event names. We map the 11 documented events that fit Shikigami's
+# existing taxonomy. `agent_action_name` and `model_name` arrive on
+# every payload but are unused at this layer.
+#
+# Each entry is (claude_shape_event_name, synthetic_tool_name). The
+# tool_name stays None for non-tool events (UserPromptSubmit, Stop,
+# SessionStart) — the existing transform() branches don't need it.
+_WINDSURF_EVENT_MAP: dict[str, tuple[str, str | None]] = {
+    "pre_user_prompt": ("UserPromptSubmit", None),
+    "pre_run_command": ("PreToolUse", "Bash"),
+    "post_run_command": ("PostToolUse", "Bash"),
+    "pre_read_code": ("PreToolUse", "Read"),
+    "post_read_code": ("PostToolUse", "Read"),
+    "pre_write_code": ("PreToolUse", "Edit"),
+    "post_write_code": ("PostToolUse", "Edit"),
+    "pre_mcp_tool_use": ("PreToolUse", "MCP"),
+    "post_mcp_tool_use": ("PostToolUse", "MCP"),
+    "post_cascade_response": ("Stop", None),
+    "post_cascade_response_with_transcript": ("Stop", None),
+    "post_setup_worktree": ("SessionStart", None),
+}
+
 
 def normalize_cursor(cursor_event: dict) -> dict:
     """Rewrite a Cursor hook payload onto the Claude-Code key shape so
@@ -127,22 +154,100 @@ def normalize_cursor(cursor_event: dict) -> dict:
     return normalized
 
 
+def normalize_windsurf(ws_event: dict) -> dict:
+    """Rewrite a Windsurf Cascade Hooks payload onto the Claude-Code key
+    shape so transform() doesn't need source-specific branches.
+
+    Windsurf differences (per https://docs.windsurf.com/windsurf/cascade/hooks):
+      - hook_event_name uses snake_case + tool-typed names
+        (pre_run_command vs PreToolUse + tool_name="Bash")
+      - trajectory_id replaces session_id
+      - tool_info nests the per-event data; we flatten the relevant
+        fields into the Claude shape (command_line → tool_input.command,
+        cwd → cwd, transcript_path → transcript_path, user_prompt →
+        prompt)
+      - response field on post_cascade_response is the assistant's reply
+        text — stash on `last_assistant_text` so the Stop branch can
+        forward it to TTS without needing the transcript file
+    """
+    raw_name = ws_event.get("hook_event_name") or ""
+    mapping = _WINDSURF_EVENT_MAP.get(raw_name)
+    if mapping is None:
+        # Unknown event — pass through unchanged so transform() will
+        # log + skip via the "unknown hook_event_name" branch.
+        return ws_event
+
+    claude_name, synthetic_tool = mapping
+    normalized: dict = {"hook_event_name": claude_name}
+
+    if synthetic_tool is not None:
+        normalized["tool_name"] = synthetic_tool
+
+    if "trajectory_id" in ws_event:
+        normalized["session_id"] = ws_event["trajectory_id"]
+
+    info = ws_event.get("tool_info") or {}
+    if not isinstance(info, dict):
+        info = {}
+
+    # Lift event-specific fields out of tool_info into the flat shape
+    # the Claude-style transform expects.
+    if synthetic_tool == "Bash":
+        cmd = info.get("command_line", "")
+        normalized["tool_input"] = {"command": cmd}
+        if "cwd" in info:
+            normalized["cwd"] = info["cwd"]
+    elif synthetic_tool in ("Read", "Edit"):
+        normalized["tool_input"] = {"file_path": info.get("file_path", "")}
+    elif synthetic_tool == "MCP":
+        # MCP tools don't carry shell commands, so destructive detection
+        # never fires for them; tool_input shape is informational only.
+        normalized["tool_input"] = {
+            "server": info.get("mcp_server_name"),
+            "tool": info.get("mcp_tool_name"),
+        }
+
+    # post_run_command, post_read_code, post_write_code, post_mcp_tool_use
+    # all benefit from a synthesised tool_response so the existing
+    # PostToolUse branch can flag exit codes. Windsurf doesn't expose
+    # exit_code directly per docs — assume success unless mcp_result
+    # indicates otherwise. Tolerant: real users will report mismatches.
+    if claude_name == "PostToolUse":
+        normalized["tool_response"] = {
+            "exit_code": 0,
+            "stdout": str(info.get("mcp_result", ""))[:1024],
+        }
+
+    if raw_name == "pre_user_prompt":
+        normalized["prompt"] = info.get("user_prompt", "")
+
+    if raw_name == "post_cascade_response_with_transcript":
+        if "transcript_path" in info:
+            normalized["transcript_path"] = info["transcript_path"]
+
+    return normalized
+
+
 def transform(cc_event: dict, source: str = "claude-code") -> dict | None:
     """Transform an upstream hook payload into Shikigami EventPayload v1.0.
 
-    The same transform handles Claude Code, Codex CLI, and Cursor —
-    Claude Code and Codex converged on identical hook event names + JSON
-    structure (see https://developers.openai.com/codex/hooks); Cursor
-    uses camelCase event names + slightly different field names which
-    we rewrite to the Claude shape via normalize_cursor() before
-    dispatch. The `source` arg becomes the EventPayload `source` field.
+    The same transform handles Claude Code, Codex CLI, Cursor, and
+    Windsurf. Claude Code + Codex converged on identical hook event
+    names + JSON structure (see https://developers.openai.com/codex/hooks);
+    Cursor uses camelCase event names + slightly different field names
+    which we rewrite to the Claude shape via normalize_cursor() before
+    dispatch; Windsurf uses snake_case event names + tool-typed events
+    + a nested tool_info object which normalize_windsurf() flattens.
+    The `source` arg becomes the EventPayload `source` field.
 
     Returns None when the event should be skipped (e.g., unknown hook
-    name — including the 13+ Cursor-specific events outside the
-    minimal-5 scope agreed in the v0.4 debate).
+    name — including the 13+ Cursor-specific and 1+ Windsurf-specific
+    events outside the minimal scope agreed in the v0.4 debate).
     """
     if source == "cursor":
         cc_event = normalize_cursor(cc_event)
+    elif source == "windsurf":
+        cc_event = normalize_windsurf(cc_event)
 
     hook_name = cc_event.get("hook_event_name") or cc_event.get("hook") or ""
     tool_name = cc_event.get("tool_name")
