@@ -198,6 +198,27 @@ jobs:
           echo '{"hook_event_name":"PermissionRequest","tool_name":"Bash","message":"allow rm?"}' \
             | SHIKIGAMI_DEBUG=1 python3 hooks/shikigami-hook.py --source codex || true
 
+      - name: Transform simulation (cursor source)
+        run: |
+          set -e
+          # Cursor uses camelCase event names + conversation_id /
+          # workspace_roots field aliases; normalize_cursor() rewrites
+          # them onto the Claude shape before the transform runs. We
+          # smoke-test the 5-event minimal scope from the v0.4 debate
+          # (sessionStart / preToolUse / postToolUse / postToolUseFailure
+          # / stop) plus an unknown event to confirm it's silently
+          # skipped instead of erroring.
+          echo '{"hook_event_name":"preToolUse","tool_name":"Bash","tool_input":{"command":"ls"},"conversation_id":"c","workspace_roots":["/tmp"]}' \
+            | SHIKIGAMI_DEBUG=1 python3 hooks/shikigami-hook.py --source cursor || true
+
+          echo '{"hook_event_name":"postToolUseFailure","tool_name":"Bash","tool_response":{}}' \
+            | SHIKIGAMI_DEBUG=1 python3 hooks/shikigami-hook.py --source cursor || true
+
+          # Unknown Cursor event (one of the 13+ outside the minimal
+          # scope) — should be a silent no-op, not an error.
+          echo '{"hook_event_name":"afterMCPExecution"}' \
+            | SHIKIGAMI_DEBUG=1 python3 hooks/shikigami-hook.py --source cursor || true
+
       - name: install-hook syntax check
         run: python3 -c "import ast; ast.parse(open('scripts/install-hook.py').read())"
 

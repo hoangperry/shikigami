@@ -4,7 +4,7 @@
 
 **Status**: `v0.1.0-alpha` · planning complete + event engine shipped · character renderer in progress
 **Platforms**: macOS (Apple Silicon + Intel, primary) · Windows (alpha — unsigned, transparency unverified) · Linux (alpha — deb/rpm/AppImage, Wayland transparency unverified)
-**Current integration**: Claude Code (primary) · Codex CLI (alpha, shared bridge) · Cursor / Windsurf / Copilot Chat tracked in v0.4 milestone
+**Current integration**: Claude Code (primary) · Codex CLI (alpha, shared bridge) · Cursor (alpha, 5-event minimal) · Windsurf / Copilot Chat tracked in v0.4 milestone
 
 ---
 
@@ -89,6 +89,36 @@ character signals "agent waiting on your approval" rather than looking
 idle while a permission dialog is open. Auto-installer for the Codex
 TOML config is tracked but deferred (KISS — manual paste is faster
 than introducing a TOML write dependency).
+
+### Cursor (alpha — 5-event minimal scope)
+
+Cursor v1.7+ ships an [extensive hook system](https://cursor.com/docs/hooks)
+with 18+ agent events. We map the **5 events that mirror Claude Code's
+core lifecycle** today (`sessionStart`, `preToolUse`, `postToolUse`,
+`postToolUseFailure`, `stop`); the remaining Cursor-specific events
+(`afterMCPExecution`, `preCompact`, `afterAgentThought`, etc.) are
+silently skipped until real users tell us which matter. Tolerant
+transformer pattern — same playbook as Codex.
+
+Add this to your Cursor hooks config (per project, `.cursor/hooks.json`,
+or globally — consult Cursor's current docs for the file location):
+
+```json
+{
+  "hooks": [
+    { "event": "sessionStart",       "command": "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source cursor" },
+    { "event": "preToolUse",         "command": "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source cursor" },
+    { "event": "postToolUse",        "command": "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source cursor" },
+    { "event": "postToolUseFailure", "command": "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source cursor" },
+    { "event": "stop",               "command": "python3 /absolute/path/to/shikigami/hooks/shikigami-hook.py --source cursor" }
+  ]
+}
+```
+
+Cursor field names differ slightly from Claude Code's (`conversation_id`
+instead of `session_id`, `workspace_roots[0]` instead of `cwd`); the
+script's `normalize_cursor()` rewrites them at the edge so the rest
+of the pipeline stays source-agnostic.
 
 ---
 

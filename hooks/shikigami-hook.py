@@ -75,19 +75,75 @@ def is_destructive(command: str) -> bool:
     return any(p.search(command) for p in DESTRUCTIVE_PATTERNS)
 
 
+# Cursor renames a handful of fields and uses camelCase event names
+# while sticking to the same payload structure overall. Normalising at
+# the edge means the rest of transform() doesn't need to know the
+# source — single code path, single set of tests. Map both directions
+# only for the 5-event minimal scope agreed in the v0.4 debate
+# (sessionStart, preToolUse, postToolUse, postToolUseFailure, stop).
+# The 13+ Cursor-specific events (afterMCPExecution, preCompact, etc.)
+# fall through to the unknown-event branch and are silently skipped
+# until real Cursor users report which ones matter.
+_CURSOR_EVENT_RENAME = {
+    "sessionStart": "SessionStart",
+    "preToolUse": "PreToolUse",
+    "postToolUse": "PostToolUse",
+    "postToolUseFailure": "PostToolUse",  # treat failure as PostToolUse w/ exit_code !=0
+    "stop": "Stop",
+}
+
+
+def normalize_cursor(cursor_event: dict) -> dict:
+    """Rewrite a Cursor hook payload onto the Claude-Code key shape so
+    transform() doesn't need source-specific branches everywhere.
+
+    Cursor differences (per https://cursor.com/docs/hooks):
+      - hook_event_name uses camelCase → map to PascalCase
+      - conversation_id replaces session_id
+      - workspace_roots[0] replaces cwd
+      - tool_name + tool_input live at the same path; usable as-is
+      - postToolUseFailure → synthesise an exit_code=1 tool_response so
+        the existing PostToolUse branch flags it as warning severity
+    """
+    normalized = dict(cursor_event)  # shallow copy — never mutate caller's dict
+    raw_name = cursor_event.get("hook_event_name") or ""
+    normalized["hook_event_name"] = _CURSOR_EVENT_RENAME.get(raw_name, raw_name)
+
+    if "conversation_id" in cursor_event and "session_id" not in cursor_event:
+        normalized["session_id"] = cursor_event["conversation_id"]
+
+    if "cwd" not in cursor_event:
+        roots = cursor_event.get("workspace_roots")
+        if isinstance(roots, list) and roots and isinstance(roots[0], str):
+            normalized["cwd"] = roots[0]
+
+    if raw_name == "postToolUseFailure":
+        existing = cursor_event.get("tool_response") or {}
+        if not isinstance(existing, dict):
+            existing = {}
+        merged = {**existing, "exit_code": existing.get("exit_code", 1)}
+        normalized["tool_response"] = merged
+
+    return normalized
+
+
 def transform(cc_event: dict, source: str = "claude-code") -> dict | None:
     """Transform an upstream hook payload into Shikigami EventPayload v1.0.
 
-    The same transform handles Claude Code and Codex CLI because both
-    tools converged on identical hook event names and JSON structure
-    (see https://developers.openai.com/codex/hooks vs Claude Code's
-    settings.json hook spec). The `source` arg becomes the EventPayload
-    `source` field so the state machine can apply tool-specific scaling
-    if it ever needs to — today it's purely informational.
+    The same transform handles Claude Code, Codex CLI, and Cursor —
+    Claude Code and Codex converged on identical hook event names + JSON
+    structure (see https://developers.openai.com/codex/hooks); Cursor
+    uses camelCase event names + slightly different field names which
+    we rewrite to the Claude shape via normalize_cursor() before
+    dispatch. The `source` arg becomes the EventPayload `source` field.
 
     Returns None when the event should be skipped (e.g., unknown hook
-    name).
+    name — including the 13+ Cursor-specific events outside the
+    minimal-5 scope agreed in the v0.4 debate).
     """
+    if source == "cursor":
+        cc_event = normalize_cursor(cc_event)
+
     hook_name = cc_event.get("hook_event_name") or cc_event.get("hook") or ""
     tool_name = cc_event.get("tool_name")
     tool_input = cc_event.get("tool_input") or {}
