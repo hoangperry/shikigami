@@ -1,5 +1,7 @@
 # 式神 · Shikigami
 
+**Languages**: **English** · [Tiếng Việt](README.vi.md) · [日本語](README.ja.md) · [简体中文](README.zh-CN.md)
+
 > A summoned desktop companion that reflects your AI agent's real-time state through a reactive 2D character, displayed as a transparent Picture-in-Picture overlay.
 
 **Status**: `v0.1.0-alpha` · planning complete + event engine shipped · character renderer in progress
