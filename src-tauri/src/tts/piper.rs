@@ -22,8 +22,9 @@ impl Piper {
     }
 }
 
-/// Allowlisted prefixes for an absolute `piper` binary path. Anything else
-/// must use the bare name `"piper"` (resolved via `$PATH`).
+/// Allowlisted prefixes for an absolute `piper` binary path on Unix.
+/// Anything else must use the bare name `"piper"` (resolved via `$PATH`).
+#[cfg(unix)]
 const SAFE_BINARY_PREFIXES: &[&str] = &[
     "/usr/local/bin/",
     "/opt/homebrew/bin/",
@@ -35,7 +36,11 @@ const SAFE_BINARY_PREFIXES: &[&str] = &[
 /// `config.json` (user-writable, and writable by any process that can drive
 /// the settings IPC), and is spawned as an executable — so an unrestricted
 /// value is an arbitrary-code-execution lever. Accept only the bare name
-/// `"piper"` (PATH lookup) or an absolute path under a known-safe prefix.
+/// `"piper"` (PATH lookup) or an absolute path. On Unix (the supported TTS
+/// platform) the absolute path must additionally sit under a known-safe
+/// install prefix; on other platforms the prefix list does not translate, so
+/// requiring an absolute path is the bar (still blocks bare-name $PATH
+/// injection of an arbitrary executable).
 fn validate_binary(bin: &str) -> Result<&str, TtsError> {
     if bin == "piper" {
         return Ok(bin);
@@ -46,10 +51,13 @@ fn validate_binary(bin: &str) -> Result<&str, TtsError> {
             "piper_binary must be either \"piper\" or an absolute path".into(),
         ));
     }
-    if !SAFE_BINARY_PREFIXES.iter().any(|pre| bin.starts_with(pre)) {
-        return Err(TtsError::MissingDep(format!(
-            "piper_binary path {bin:?} is outside the allowed install prefixes"
-        )));
+    #[cfg(unix)]
+    {
+        if !SAFE_BINARY_PREFIXES.iter().any(|pre| bin.starts_with(pre)) {
+            return Err(TtsError::MissingDep(format!(
+                "piper_binary path {bin:?} is outside the allowed install prefixes"
+            )));
+        }
     }
     Ok(bin)
 }
@@ -130,22 +138,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn accepts_bare_piper_and_safe_absolute_paths() {
+    fn accepts_bare_piper() {
+        // The bare name is accepted on every platform ($PATH lookup).
         assert_eq!(validate_binary("piper").unwrap(), "piper");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn accepts_safe_absolute_paths_on_unix() {
         assert_eq!(
             validate_binary("/opt/homebrew/bin/piper").unwrap(),
             "/opt/homebrew/bin/piper"
         );
         assert!(validate_binary("/usr/local/bin/piper").is_ok());
+        // Absolute but outside the allowlist is refused on Unix.
+        assert!(validate_binary("/tmp/evil").is_err());
+        assert!(validate_binary("/Users/me/.cache/payload").is_err());
     }
 
     #[test]
-    fn rejects_arbitrary_executables() {
-        assert!(validate_binary("/tmp/evil").is_err());
-        assert!(validate_binary("/Users/me/.cache/payload").is_err());
-        // Relative non-"piper" names would trigger a $PATH lookup — refuse.
+    fn rejects_relative_and_bare_executable_names() {
+        // Relative / bare non-"piper" names would trigger a $PATH lookup of
+        // an arbitrary executable — refused on every platform.
         assert!(validate_binary("./piper").is_err());
         assert!(validate_binary("rm").is_err());
+        assert!(validate_binary("payload").is_err());
     }
 
     #[test]
