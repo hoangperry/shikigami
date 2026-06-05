@@ -103,6 +103,7 @@ export function SpeechBubble({ state, lastEventText, spokenText, spokenKey }: Pr
       return () => window.clearTimeout(t);
     }
     return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally depends on the specific state fields pickBubble reads, not the `state` object identity (which changes every render and would re-fire the bubble spuriously).
   }, [
     state?.event_id,
     lastEventText,

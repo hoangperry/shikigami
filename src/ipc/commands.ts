@@ -5,7 +5,14 @@ export type TtsConfig = {
   /** "none" | "say-macos" | "piper" | "openai" | "elevenlabs" */
   provider: string;
   voice: string | null;
-  api_key: string | null;
+  /**
+   * Write-only. `get_settings` / `settings_changed` NEVER return the key
+   * (the Rust side redacts it so the secret never crosses the IPC boundary
+   * — see Settings::redacted). Present here only so it can be SENT in an
+   * `updateSettings` patch when the user enters a new key. Always
+   * `undefined` on read.
+   */
+  api_key?: string | null;
   piper_binary: string | null;
   piper_model: string | null;
   rate: number;

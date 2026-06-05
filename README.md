@@ -4,8 +4,8 @@
 
 > A summoned desktop companion that reflects your AI agent's real-time state through a reactive 2D character, displayed as a transparent Picture-in-Picture overlay.
 
-**Status**: `v0.1.0-alpha` · planning complete + event engine shipped · character renderer in progress
-**Platforms**: macOS (Apple Silicon + Intel, primary) · Windows (alpha — unsigned, transparency unverified) · Linux (alpha — deb/rpm/AppImage, Wayland transparency unverified)
+**Status**: `v0.1.0` — first release · event engine + Live2D/sprite character renderer shipped · macOS production-supported
+**Platforms**: macOS (Apple Silicon + Intel) — **production-supported** · Windows (alpha — unsigned, transparency unverified) · Linux (alpha — deb/rpm/AppImage, Wayland transparency unverified)
 **Current integration**: Claude Code (primary) · Codex CLI (alpha) · Cursor (alpha, 5-event minimal) · Windsurf (alpha, schema-derived from docs — untested against live payloads) · Copilot Chat tracked in v0.4 milestone
 
 ---

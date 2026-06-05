@@ -468,7 +468,7 @@ export function CharacterStage() {
           }}
         >
           <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>
-            Shikigami v0.1.0-alpha.0 · (⌘I to hide, ⌘, for prefs)
+            Shikigami v0.1.0 · (⌘I to hide, ⌘, for prefs)
           </div>
           <div>
             characters: {allCharacters.length} · active: {activeCharacter?.id ?? "—"}

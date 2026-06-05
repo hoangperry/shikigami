@@ -46,5 +46,24 @@ export default defineConfig({
         : "safari13",
     minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
+    rollupOptions: {
+      output: {
+        // Split rarely-changing vendor code into its own chunks. This is a
+        // Tauri app — assets load from local disk, not the network, so the
+        // win is cleaner builds + cache stability across releases rather
+        // than transfer size. The Live2D renderer is already lazy-loaded
+        // (dynamic import in character-stage), so `pixi-live2d-display-*`
+        // stays in its own async chunk; we only pin the eager vendors here.
+        manualChunks: {
+          react: ["react", "react-dom"],
+          pixi: ["pixi.js"],
+        },
+      },
+    },
+    // The largest eager chunk is the Pixi runtime (~400 KB). For a
+    // local-disk desktop app this is not a transfer-cost concern, so we
+    // lift the default 500 KB advisory to a realistic ceiling instead of
+    // chasing a web-only metric.
+    chunkSizeWarningLimit: 800,
   },
 });

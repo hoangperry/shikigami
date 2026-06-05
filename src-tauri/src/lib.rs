@@ -320,25 +320,44 @@ fn apply_runtime_settings_cmd(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 fn get_settings(_app: AppHandle) -> Settings {
-    Settings::load()
+    // Redacted: the inline TTS api_key must never cross the IPC boundary.
+    Settings::load().redacted()
+}
+
+/// Recursively merge `patch` into `base` (JSON object semantics).
+///
+/// Nested objects merge key-by-key; any other value type (scalar, array,
+/// null) replaces wholesale. Critically, keys absent from `patch` are left
+/// untouched — so a Preferences write like `{ "tts": { "voice": "x" } }`
+/// preserves the persisted `tts.api_key` instead of clobbering it. The old
+/// shallow top-level merge replaced the entire `tts` object, which would
+/// wipe the key now that `get_settings` redacts it (the WebView never sees
+/// the key, so it cannot echo it back in the patch).
+fn deep_merge(base: &mut serde_json::Value, patch: &serde_json::Value) {
+    match (base, patch) {
+        (serde_json::Value::Object(b), serde_json::Value::Object(p)) => {
+            for (k, v) in p {
+                deep_merge(b.entry(k.clone()).or_insert(serde_json::Value::Null), v);
+            }
+        }
+        (b, p) => *b = p.clone(),
+    }
 }
 
 #[tauri::command]
 fn update_settings(app: AppHandle, patch: serde_json::Value) -> Result<Settings, String> {
-    let mut current = Settings::load();
+    let current = Settings::load();
     let mut merged =
         serde_json::to_value(&current).map_err(|e| format!("serialize failed: {e}"))?;
-    if let (Some(m), Some(p)) = (merged.as_object_mut(), patch.as_object()) {
-        for (k, v) in p {
-            m.insert(k.clone(), v.clone());
-        }
-    }
-    current = serde_json::from_value(merged).map_err(|e| format!("merge failed: {e}"))?;
-    current.save().map_err(|e| format!("persist failed: {e}"))?;
-    // Notify the frontend so renderer-applied knobs (scale, opacity)
-    // take effect without a restart.
-    let _ = app.emit("settings_changed", &current);
-    Ok(current)
+    deep_merge(&mut merged, &patch);
+    let updated: Settings =
+        serde_json::from_value(merged).map_err(|e| format!("merge failed: {e}"))?;
+    updated.save().map_err(|e| format!("persist failed: {e}"))?;
+    // Hand the renderer a redacted copy so knobs (scale, opacity, volume)
+    // take effect without a restart — without leaking the api_key.
+    let redacted = updated.redacted();
+    let _ = app.emit("settings_changed", &redacted);
+    Ok(redacted)
 }
 
 #[tauri::command]
@@ -413,4 +432,67 @@ fn init_tracing() {
         .with_env_filter(filter)
         .with_target(false)
         .try_init();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Simulate the Preferences write path: load → to_value → deep_merge
+    /// patch → from_value → the persisted Settings. The renderer sends a
+    /// redacted `tts` object (no api_key), so the merge MUST preserve the
+    /// stored key. This is the regression guard for the C-1 secret-handling
+    /// fix — a shallow merge here would silently wipe the user's API key.
+    fn apply_patch(current: &Settings, patch: serde_json::Value) -> Settings {
+        let mut merged = serde_json::to_value(current).unwrap();
+        deep_merge(&mut merged, &patch);
+        serde_json::from_value(merged).unwrap()
+    }
+
+    #[test]
+    fn deep_merge_preserves_api_key_when_patch_omits_it() {
+        let mut current = Settings::default();
+        current.tts.provider = "openai".into();
+        current.tts.api_key = Some("sk-keep-me".into());
+
+        // Patch mirrors what the redacted WebView sends when the user nudges
+        // the voice slider — a full `tts` object WITHOUT api_key.
+        let patch = json!({
+            "tts": { "provider": "openai", "voice": "nova", "rate": 1.2 }
+        });
+        let next = apply_patch(&current, patch);
+
+        assert_eq!(next.tts.api_key.as_deref(), Some("sk-keep-me"));
+        assert_eq!(next.tts.voice.as_deref(), Some("nova"));
+        assert_eq!(next.tts.rate, 1.2);
+    }
+
+    #[test]
+    fn deep_merge_sets_api_key_when_patch_includes_it() {
+        let current = Settings::default();
+        let patch = json!({ "tts": { "api_key": "sk-new" } });
+        let next = apply_patch(&current, patch);
+        assert_eq!(next.tts.api_key.as_deref(), Some("sk-new"));
+    }
+
+    #[test]
+    fn deep_merge_clears_api_key_on_explicit_null() {
+        let mut current = Settings::default();
+        current.tts.api_key = Some("sk-old".into());
+        let patch = json!({ "tts": { "api_key": null } });
+        let next = apply_patch(&current, patch);
+        assert_eq!(next.tts.api_key, None);
+    }
+
+    #[test]
+    fn deep_merge_updates_top_level_scalar() {
+        let current = Settings::default();
+        let patch = json!({ "scale": 1.5, "click_through": true });
+        let next = apply_patch(&current, patch);
+        assert_eq!(next.scale, 1.5);
+        assert!(next.click_through);
+        // Untouched fields keep their defaults.
+        assert_eq!(next.opacity, 1.0);
+    }
 }

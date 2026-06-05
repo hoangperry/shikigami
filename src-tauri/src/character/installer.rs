@@ -87,6 +87,17 @@ pub fn install_zip(archive_path: &Path) -> Result<Installed, InstallError> {
             return Err(InstallError::PathEscape { entry: entry_name });
         }
 
+        // Reject symlink entries. `enclosed_name()` blocks `..` traversal in
+        // the *entry path*, but a symlink whose target escapes the sandbox
+        // would let later file ops (or the asset protocol) follow it outside
+        // `~/.shikigami/`. ZIP stores the symlink type in the Unix mode bits
+        // of the external attributes (S_IFLNK = 0o120000).
+        if let Some(mode) = entry.unix_mode() {
+            if mode & 0o170000 == 0o120000 {
+                return Err(InstallError::PathEscape { entry: entry_name });
+            }
+        }
+
         if entry.is_dir() {
             std::fs::create_dir_all(&dest)?;
             continue;
@@ -200,6 +211,52 @@ mod tests {
         assert!(
             matches!(err, InstallError::PathEscape { .. }),
             "expected path escape rejection, got {err:?}"
+        );
+        let _ = std::fs::remove_file(&tmp);
+    }
+
+    #[test]
+    fn rejects_symlink_entry() {
+        // Craft an archive whose manifest is valid but which smuggles a
+        // symlink pointing outside the sandbox. Extraction must refuse it.
+        //
+        // Uses a UNIQUE id so the staging/final dirs under the shared
+        // ~/.shikigami/characters/ don't collide with other installer tests
+        // running on parallel threads (cargo's default).
+        let manifest = serde_json::to_vec(&serde_json::json!({
+            "schemaVersion": "1.0",
+            "id": "test-symlink-pkg",
+            "name": "T",
+            "author": "x",
+            "version": "1.0.0",
+            "license": "MIT",
+            "renderer": "sprite",
+            "defaultState": "idle",
+            "states": {
+                "idle":  { "path": "assets/states/idle",  "fps": 12 },
+                "happy": { "path": "assets/states/happy", "fps": 12 }
+            }
+        }))
+        .unwrap();
+        let mut buf = Vec::new();
+        {
+            let mut w = zip::ZipWriter::new(std::io::Cursor::new(&mut buf));
+            let opts = zip::write::SimpleFileOptions::default();
+            w.start_file("manifest.json", opts).unwrap();
+            w.write_all(&manifest).unwrap();
+            // A symlink named like a normal asset, targeting an absolute
+            // path outside the install dir.
+            w.add_symlink("assets/states/idle/frame_00.png", "/etc/passwd", opts)
+                .unwrap();
+            w.finish().unwrap();
+        }
+        let mut tmp = std::env::temp_dir();
+        tmp.push(format!("shikigami-symlink-{}.zip", std::process::id()));
+        std::fs::write(&tmp, &buf).unwrap();
+        let err = install_zip(&tmp).unwrap_err();
+        assert!(
+            matches!(err, InstallError::PathEscape { .. }),
+            "expected symlink rejection, got {err:?}"
         );
         let _ = std::fs::remove_file(&tmp);
     }

@@ -1,6 +1,6 @@
 [package]
 name = "shikigami"
-version = "0.1.0-alpha.0"
+version = "0.1.0"
 description = "A summoned desktop companion that reflects your AI agent's real-time state."
 authors = ["hoangperry"]
 edition = "2021"

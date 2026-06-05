@@ -43,7 +43,7 @@ pub fn install<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         Some(tauri::menu::AboutMetadata {
             name: Some("Shikigami".into()),
             version: Some(env!("CARGO_PKG_VERSION").into()),
-            short_version: Some("0.1.0-alpha".into()),
+            short_version: Some("0.1.0".into()),
             ..Default::default()
         }),
     )?;

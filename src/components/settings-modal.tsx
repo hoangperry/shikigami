@@ -45,6 +45,12 @@ export function SettingsModal({ open, onClose }: Props) {
   const [characters, setCharacters] = useState<CharacterSummary[]>([]);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [saving, setSaving] = useState(false);
+  // The TTS API key is write-only: the backend redacts it from
+  // `get_settings`, so the input is driven by local draft state rather than
+  // `settings.tts.api_key` (which is always undefined on read). This also
+  // keeps the controlled input from resetting on every keystroke when
+  // `update()` reloads settings.
+  const [apiKeyDraft, setApiKeyDraft] = useState("");
 
   // Load settings, character roster, and active session list when the
   // modal opens. The session list is also polled every 3s while open so
@@ -52,6 +58,7 @@ export function SettingsModal({ open, onClose }: Props) {
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
+    setApiKeyDraft(""); // never pre-fill a secret; redacted on read anyway
     Promise.all([getSettings(), listCharacters(), listSessions()])
       .then(([s, chars, sess]) => {
         if (cancelled) return;
@@ -297,7 +304,10 @@ export function SettingsModal({ open, onClose }: Props) {
         <Row label="Provider">
           <select
             value={settings.tts.provider}
-            onChange={(e) => updateTts({ provider: e.target.value })}
+            onChange={(e) => {
+              setApiKeyDraft("");
+              updateTts({ provider: e.target.value });
+            }}
             style={selectStyle}
           >
             {TTS_PROVIDERS.map((p) => (
@@ -371,15 +381,18 @@ export function SettingsModal({ open, onClose }: Props) {
               <Row label="API key (or env)">
                 <input
                   type="password"
-                  value={settings.tts.api_key ?? ""}
+                  value={apiKeyDraft}
+                  autoComplete="off"
                   placeholder={
                     settings.tts.provider === "openai"
-                      ? "OPENAI_API_KEY env wins"
-                      : "ELEVENLABS_API_KEY env wins"
+                      ? "OPENAI_API_KEY env · or paste to save"
+                      : "ELEVENLABS_API_KEY env · or paste to save"
                   }
-                  onChange={(e) =>
-                    updateTts({ api_key: e.target.value.trim() || null })
-                  }
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setApiKeyDraft(v);
+                    updateTts({ api_key: v.trim() || null });
+                  }}
                   style={textInputStyle}
                 />
               </Row>

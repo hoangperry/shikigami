@@ -7,6 +7,7 @@
 use super::provider::{TtsError, TtsOutput, TtsProvider};
 use crate::config::settings::TtsConfig;
 use async_trait::async_trait;
+use std::path::Path;
 use std::process::Stdio;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
@@ -21,6 +22,52 @@ impl Piper {
     }
 }
 
+/// Allowlisted prefixes for an absolute `piper` binary path. Anything else
+/// must use the bare name `"piper"` (resolved via `$PATH`).
+const SAFE_BINARY_PREFIXES: &[&str] = &[
+    "/usr/local/bin/",
+    "/opt/homebrew/bin/",
+    "/usr/bin/",
+    "/opt/local/bin/",
+];
+
+/// Validate the user-configured `piper_binary`. The value comes from
+/// `config.json` (user-writable, and writable by any process that can drive
+/// the settings IPC), and is spawned as an executable — so an unrestricted
+/// value is an arbitrary-code-execution lever. Accept only the bare name
+/// `"piper"` (PATH lookup) or an absolute path under a known-safe prefix.
+fn validate_binary(bin: &str) -> Result<&str, TtsError> {
+    if bin == "piper" {
+        return Ok(bin);
+    }
+    let p = Path::new(bin);
+    if !p.is_absolute() {
+        return Err(TtsError::MissingDep(
+            "piper_binary must be either \"piper\" or an absolute path".into(),
+        ));
+    }
+    if !SAFE_BINARY_PREFIXES.iter().any(|pre| bin.starts_with(pre)) {
+        return Err(TtsError::MissingDep(format!(
+            "piper_binary path {bin:?} is outside the allowed install prefixes"
+        )));
+    }
+    Ok(bin)
+}
+
+/// Validate the `--model` path. Reject a leading `-` (would be parsed as a
+/// flag by piper) and empty values.
+fn validate_model(model: &str) -> Result<&str, TtsError> {
+    if model.is_empty() {
+        return Err(TtsError::MissingDep("piper_model is empty".into()));
+    }
+    if model.starts_with('-') {
+        return Err(TtsError::MissingDep(
+            "piper_model may not start with '-'".into(),
+        ));
+    }
+    Ok(model)
+}
+
 #[async_trait]
 impl TtsProvider for Piper {
     fn name(&self) -> &'static str {
@@ -28,12 +75,13 @@ impl TtsProvider for Piper {
     }
 
     async fn synthesize(&self, text: &str, _voice: Option<&str>) -> Result<TtsOutput, TtsError> {
-        let bin = self.cfg.piper_binary.as_deref().unwrap_or("piper");
-        let model = self
-            .cfg
-            .piper_model
-            .as_deref()
-            .ok_or_else(|| TtsError::MissingDep("piper_model not configured".into()))?;
+        let bin = validate_binary(self.cfg.piper_binary.as_deref().unwrap_or("piper"))?;
+        let model = validate_model(
+            self.cfg
+                .piper_model
+                .as_deref()
+                .ok_or_else(|| TtsError::MissingDep("piper_model not configured".into()))?,
+        )?;
 
         let out = super::fresh_output_path("wav")?;
 
@@ -74,5 +122,36 @@ impl TtsProvider for Piper {
             mime: "audio/wav",
             provider: "piper",
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_bare_piper_and_safe_absolute_paths() {
+        assert_eq!(validate_binary("piper").unwrap(), "piper");
+        assert_eq!(
+            validate_binary("/opt/homebrew/bin/piper").unwrap(),
+            "/opt/homebrew/bin/piper"
+        );
+        assert!(validate_binary("/usr/local/bin/piper").is_ok());
+    }
+
+    #[test]
+    fn rejects_arbitrary_executables() {
+        assert!(validate_binary("/tmp/evil").is_err());
+        assert!(validate_binary("/Users/me/.cache/payload").is_err());
+        // Relative non-"piper" names would trigger a $PATH lookup — refuse.
+        assert!(validate_binary("./piper").is_err());
+        assert!(validate_binary("rm").is_err());
+    }
+
+    #[test]
+    fn rejects_model_flag_injection() {
+        assert!(validate_model("-c").is_err());
+        assert!(validate_model("").is_err());
+        assert!(validate_model("/path/to/voice.onnx").is_ok());
     }
 }
